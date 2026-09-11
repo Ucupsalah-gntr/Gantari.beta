@@ -341,7 +341,6 @@
 
   pilihBuktiSpp,
   uploadBuktiSpp,
-  debugAksesPembayaran,
             
   loadGuru,
   loadAbsensiGuruAdmin,
