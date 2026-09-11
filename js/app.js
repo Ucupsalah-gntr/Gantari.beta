@@ -333,6 +333,8 @@
   tutupFormSpp,
   tandaiLunas,
   hapusSpp,
+  terimaPembayaranSpp,
+  tolakPembayaranSpp,
 
   pilihBuktiSpp,
   uploadBuktiSpp,
