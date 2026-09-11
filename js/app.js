@@ -77,7 +77,6 @@
   </div>
 
 </header>
-              <div class="notif-panel" id="notifPanel"></div>
               <section class="view" id="view"></section>
             </main>
           </div>
@@ -414,6 +413,7 @@
   loadNotifikasi,
   startRealtimeNotifications,
   stopRealtimeNotifications,
+  dashOpenSpp,
   bukaPembayaranDariNotifikasi,
   bukaPembayaranDariNotifikasi,
  
