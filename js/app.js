@@ -320,42 +320,54 @@
 
       // Expose app functions to window
       window.__app = {
-        goTo,
-        logout,
-        toggleMobileMenu,
-        bukaFormSiswa,
-        tutupFormSiswa,
-        hapusSiswa,
-        bukaFormSpp,
-        tutupFormSpp,
-        tandaiLunas,
-        hapusSpp,
-        loadGuru,
-        loadAbsensiGuruAdmin,
-        loadAbsensiSaya,
-        simpanAbsensiSaya,
-        exportSppCsv,
-        buatTagihanBulanan,
-        loadPerhatian,
-        exportAbsensiGuruCsv,
-        exportRekapAbsensiCsv,
-        exportPerkembanganCsv,
-        loadPerkembanganAdmin,
-        changePerkPage,
-        loadSiswaPerkembangan,
-        simpanPerkembangan,
-        loadPerkembanganGuru,
-        loadPerkembanganAnak,
-        toggleNotifikasi,
-        loadFormInputAbsen,
-        simpanAbsensiMassal,
-        loadRekapAbsensi,
-        loadRiwayatAbsensi,
-        gantiAnak,
-        loadAbsenAnak,
-        loadSppAnak,
-        tampilkanRiwayatPerkembangan: renderRiwayatPerkembanganDipilih,
-      };
+  goTo,
+  logout,
+  toggleMobileMenu,
+
+  bukaFormSiswa,
+  tutupFormSiswa,
+  editSiswa,
+  hapusSiswa,
+
+  bukaFormSpp,
+  tutupFormSpp,
+  tandaiLunas,
+  hapusSpp,
+
+  loadGuru,
+  loadAbsensiGuruAdmin,
+  loadAbsensiSaya,
+  simpanAbsensiSaya,
+
+  exportSppCsv,
+  buatTagihanBulanan,
+  loadPerhatian,
+  exportAbsensiGuruCsv,
+  exportRekapAbsensiCsv,
+  exportPerkembanganCsv,
+
+  loadPerkembanganAdmin,
+  changePerkPage,
+  loadSiswaPerkembangan,
+  simpanPerkembangan,
+  loadPerkembanganGuru,
+  loadPerkembanganAnak,
+
+  toggleNotifikasi,
+
+  loadFormInputAbsen,
+  simpanAbsensiMassal,
+
+  loadRekapAbsensi,
+  loadRiwayatAbsensi,
+
+  gantiAnak,
+  loadAbsenAnak,
+  loadSppAnak,
+
+  tampilkanRiwayatPerkembangan:
+    renderRiwayatPerkembanganDipilih
+};
 
       // Start app setelah koneksi Supabase siap.
       gantarikuSupabaseReady.then(function () {
