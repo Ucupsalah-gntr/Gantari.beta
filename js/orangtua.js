@@ -1240,4 +1240,68 @@ async function uploadBuktiSpp(
       )
     );
   }
+async function debugAksesPembayaran() {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError) throw userError;
+
+    if (!user) {
+      alert("Session login tidak ditemukan.");
+      return;
+    }
+
+    const {
+      data: profile,
+      error: profileError
+    } = await supabase
+      .from("pengguna")
+      .select("id,user_id,nama,email,role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    const {
+      data: anak,
+      error: anakError
+    } = await supabase
+      .from("siswa")
+      .select("id,nama,orang_tua_id")
+      .eq(
+        "orang_tua_id",
+        profile.id
+      );
+
+    if (anakError) throw anakError;
+
+    console.log("AUTH USER:", user);
+    console.log("PROFILE:", profile);
+    console.log("ANAK:", anak);
+
+    alert(
+      "HASIL DEBUG\n\n" +
+      "Login: " + user.email + "\n" +
+      "Nama: " + profile.nama + "\n" +
+      "Role: " + profile.role + "\n" +
+      "ID Profil: " + profile.id + "\n" +
+      "Jumlah anak: " + (anak || []).length
+    );
+
+  } catch (error) {
+    console.error(
+      "DEBUG PEMBAYARAN:",
+      error
+    );
+
+    alert(
+      "DEBUG GAGAL:\n\n" +
+      (error?.message || error)
+    );
+  }
 }
+
+
