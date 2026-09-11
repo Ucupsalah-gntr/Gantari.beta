@@ -1,3 +1,6 @@
+// ============================================================
+      // APP SHELL
+      // ============================================================
       function renderApp() {
         const html = `
           <div class="app">
@@ -74,6 +77,7 @@
   </div>
 
 </header>
+              <div class="notif-panel" id="notifPanel"></div>
               <section class="view" id="view"></section>
             </main>
           </div>
@@ -259,14 +263,20 @@
           loadSpp();
 
           const formSpp = document.getElementById("formSpp");
-          if (formSpp) formSpp.addEventListener("submit", simpanSpp);
+          if (formSpp && !formSpp.dataset.bound) {
+            formSpp.addEventListener("submit", simpanSpp);
+            formSpp.dataset.bound = "1";
+          }
 
-          const filterBulan = document.getElementById("filterBulanSpp");
           const filterTahun = document.getElementById("filterTahunSpp");
+          const filterKelas = document.getElementById("filterKelasSpp");
+          const filterCari = document.getElementById("filterCariSpp");
           const filterStatus = document.getElementById("filterStatusSpp");
-          if (filterBulan) filterBulan.addEventListener("change", loadSpp);
+
           if (filterTahun) filterTahun.addEventListener("change", loadSpp);
-          if (filterStatus) filterStatus.addEventListener("change", loadSpp);
+          if (filterKelas) filterKelas.addEventListener("change", applySppTahunanFilter);
+          if (filterCari) filterCari.addEventListener("input", applySppTahunanFilter);
+          if (filterStatus) filterStatus.addEventListener("change", applySppTahunanFilter);
         }
 
         if (currentNav === "input-absen") {
@@ -374,6 +384,9 @@
   terimaPembayaranSpp,
   tolakPembayaranSpp,
   loadSpp,
+  bukaDetailSpp,
+  tutupDetailSpp,
+  fokusSppTahunan,
 
   pilihBuktiSpp,
   uploadBuktiSpp,
@@ -401,6 +414,7 @@
   loadNotifikasi,
   startRealtimeNotifications,
   stopRealtimeNotifications,
+  bukaPembayaranDariNotifikasi,
   bukaPembayaranDariNotifikasi,
  
 
