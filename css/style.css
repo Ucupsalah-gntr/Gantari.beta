@@ -684,3 +684,17 @@
     width: auto;
   }
 }
+.notif-payment {
+  cursor: pointer;
+  transition:
+    background .15s ease,
+    transform .1s ease;
+}
+
+.notif-payment:hover {
+  background: var(--primary-soft);
+}
+
+.notif-payment:active {
+  transform: scale(.99);
+}
