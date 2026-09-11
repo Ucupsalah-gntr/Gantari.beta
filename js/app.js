@@ -335,6 +335,7 @@
   hapusSpp,
   terimaPembayaranSpp,
   tolakPembayaranSpp,
+  loadSpp,
 
   pilihBuktiSpp,
   uploadBuktiSpp,
