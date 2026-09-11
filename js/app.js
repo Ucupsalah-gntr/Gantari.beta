@@ -1,6 +1,3 @@
-// ============================================================
-      // APP SHELL
-      // ============================================================
       function renderApp() {
         const html = `
           <div class="app">
@@ -77,7 +74,6 @@
   </div>
 
 </header>
-              <div class="notif-panel" id="notifPanel"></div>
               <section class="view" id="view"></section>
             </main>
           </div>
