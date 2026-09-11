@@ -1146,11 +1146,20 @@ async function uploadBuktiSpp(
         spp.bulan
       ).padStart(2, "0")}-${Date.now()}.${extension}`;
 
-    const folder =
-      currentUser.id;
+    const {
+  data: {
+    user: authUser
+  }
+} = await supabase.auth.getUser();
 
-    const filePath =
-      `${folder}/${safeName}`;
+if (!authUser) {
+  throw new Error(
+    "Session login tidak ditemukan."
+  );
+}
+
+const filePath =
+  `${authUser.id}/${safeName}`;
 
     // Upload
     const {
