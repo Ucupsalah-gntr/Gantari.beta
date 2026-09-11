@@ -1,12 +1,3 @@
-// ============================================================
-// GANTARIKU — EXPORT & NOTIFIKASI REALTIME
-// ============================================================
-
-
-// ============================================================
-// EXPORT CSV
-// ============================================================
-
 function downloadCsv(filename, rows) {
   const csv = rows
     .map((row) =>
@@ -379,20 +370,15 @@ function toggleNotifikasi() {
 
 async function loadNotifikasi() {
   const panel =
-    document.getElementById(
-      "notifPanel"
-    );
+    document.getElementById("notifPanel");
 
   const count =
-    document.getElementById(
-      "notifCount"
-    );
+    document.getElementById("notifCount");
 
   if (
-    !panel ||
-    !count ||
     !supabase ||
-    currentUserRole !== "admin"
+    currentUserRole !== "admin" ||
+    !count
   ) {
     return;
   }
