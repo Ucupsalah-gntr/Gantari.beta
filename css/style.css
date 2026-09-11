@@ -698,3 +698,268 @@
 .notif-payment:active {
   transform: scale(.99);
 }
+/* ============================================================
+   GANTARIKU — MONITORING SPP TAHUNAN
+   Tambahkan isi file ini ke css/style.css
+   ============================================================ */
+
+.spp-annual-section { overflow: visible; }
+.spp-toolbar { justify-content: flex-end; }
+.spp-search { min-width: 190px; }
+
+.spp-annual-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 20px 4px;
+}
+
+.spp-summary-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.spp-summary-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.spp-summary-good { color: var(--good); }
+.spp-summary-warn { color: var(--warn); }
+.spp-summary-bad { color: var(--bad); }
+
+.spp-summary-label {
+  color: var(--ink-soft);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.spp-annual-help {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.spp-table-wrap {
+  overflow-x: auto;
+  padding: 0 20px 20px;
+}
+
+.spp-annual-table {
+  min-width: 1050px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.spp-annual-table th,
+.spp-annual-table td {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.spp-annual-table th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--bg);
+}
+
+.spp-sticky-col {
+  position: sticky !important;
+  left: 0;
+  z-index: 3 !important;
+  text-align: left !important;
+  min-width: 190px;
+  background: #fff;
+}
+
+.spp-annual-table th.spp-sticky-col {
+  z-index: 6 !important;
+  background: var(--bg);
+}
+
+.spp-class-col {
+  position: sticky !important;
+  left: 190px;
+  z-index: 3 !important;
+  min-width: 80px;
+  background: #fff;
+}
+
+.spp-annual-table th.spp-class-col {
+  z-index: 6 !important;
+  background: var(--bg);
+}
+
+.spp-student-name {
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.spp-student-meta {
+  color: var(--ink-soft);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.spp-cell-wrap {
+  width: 60px;
+  padding: 6px 4px !important;
+}
+
+.spp-cell-empty {
+  width: 60px;
+  color: #aaa;
+  font-weight: 700;
+}
+
+.spp-cell {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .15s;
+}
+
+.spp-cell:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(33,27,59,.12);
+}
+
+.spp-lunas {
+  background: var(--good-soft);
+  color: var(--good);
+  border-color: #bceacb;
+}
+
+.spp-pending {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: #f8d39b;
+}
+
+.spp-belum {
+  background: var(--bad-soft);
+  color: var(--bad);
+  border-color: #f3bdcb;
+}
+
+.spp-kosong {
+  background: var(--muted);
+  color: var(--ink-soft);
+}
+
+.spp-cell-focus {
+  animation: sppFocus 1.1s ease-in-out 2;
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@keyframes sppFocus {
+  50% { transform: scale(1.12); }
+}
+
+.spp-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(33,27,59,.34);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.spp-modal-card {
+  width: min(520px, 100%);
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 24px 70px rgba(33,27,59,.25);
+}
+
+.spp-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.spp-modal-close {
+  border: 0;
+  background: var(--muted);
+  color: var(--ink-soft);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.spp-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.spp-detail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.notif-payment {
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+
+.notif-payment:hover {
+  background: var(--primary-soft);
+}
+
+@media (max-width: 760px) {
+  .spp-annual-summary {
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  .spp-toolbar {
+    width: 100%;
+  }
+
+  .spp-toolbar > * {
+    width: 100%;
+  }
+
+  .spp-search {
+    min-width: 0;
+  }
+
+  .spp-class-col {
+    left: 170px;
+  }
+
+  .spp-sticky-col {
+    min-width: 170px;
+  }
+
+  .spp-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
