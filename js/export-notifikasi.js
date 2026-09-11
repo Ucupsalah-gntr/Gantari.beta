@@ -369,6 +369,7 @@ function toggleNotifikasi() {
 // ------------------------------------------------------------
 
 async function loadNotifikasi() {
+
   const panel =
     document.getElementById("notifPanel");
 
@@ -378,7 +379,8 @@ async function loadNotifikasi() {
   if (
     !supabase ||
     currentUserRole !== "admin" ||
-    !count
+    !count ||
+    !panel
   ) {
     return;
   }
@@ -400,98 +402,155 @@ async function loadNotifikasi() {
       getTodayWIBString();
 
 
-    // --------------------------------------------------------
-    // SPP BULAN INI
-    // --------------------------------------------------------
+    // ========================================================
+    // 1. PEMBAYARAN MENUNGGU VERIFIKASI
+    //    Tidak dibatasi bulan berjalan.
+    // ========================================================
 
     const {
-      data: spp,
-    } =
-      await supabase
-        .from("spp")
-        .select(
-          "id,status"
+      data: pembayaranPending,
+      error: pendingError
+    } = await supabase
+      .from("spp")
+      .select(`
+        id,
+        bulan,
+        tahun,
+        nominal,
+        siswa:siswa_id (
+          nama,
+          kelas
         )
-        .eq(
-          "bulan",
-          bulan
-        )
-        .eq(
-          "tahun",
-          tahun
-        );
-
-
-    const semuaSpp =
-      spp || [];
-
-    const belumBayar =
-      semuaSpp.filter(
-        (x) =>
-          x.status ===
-          "Belum Bayar"
-      ).length;
-
-    const menunggu =
-      semuaSpp.filter(
-        (x) =>
-          x.status ===
-          "Menunggu Verifikasi"
-      ).length;
-
-
-    if (menunggu > 0) {
-      items.push(
-        `🔔 ${menunggu} pembayaran SPP menunggu verifikasi.`
+      `)
+      .eq(
+        "status",
+        "Menunggu Verifikasi"
+      )
+      .order(
+        "updated_at",
+        {
+          ascending: false
+        }
       );
-    }
 
-    if (belumBayar > 0) {
-      items.push(
-        `💳 ${belumBayar} tagihan SPP ${namaBulan(
-          bulan
-        )} belum lunas.`
-      );
+    if (pendingError) {
+      throw pendingError;
     }
 
 
-    // --------------------------------------------------------
-    // ABSENSI GURU
-    // --------------------------------------------------------
+    // Batasi tampilan supaya panel tidak terlalu panjang
+    const pending =
+      pembayaranPending || [];
+
+    pending
+      .slice(0, 5)
+      .forEach(
+        (spp) => {
+
+          items.push({
+            type: "payment",
+            text:
+              `🔔 ${spp.siswa?.nama || "Siswa"} ` +
+              `mengirim bukti SPP ` +
+              `${namaBulan(spp.bulan)} ${spp.tahun} ` +
+              `sebesar ${formatRupiah(spp.nominal)}.`,
+            sppId:
+              spp.id
+          });
+
+        }
+      );
+
+
+    // ========================================================
+    // 2. SPP BELUM LUNAS BULAN BERJALAN
+    //    Ini hanya warning, bukan pembayaran baru.
+    // ========================================================
+
+    const {
+      data: sppBulanIni,
+      error: sppError
+    } = await supabase
+      .from("spp")
+      .select("id,status")
+      .eq(
+        "bulan",
+        bulan
+      )
+      .eq(
+        "tahun",
+        tahun
+      )
+      .eq(
+        "status",
+        "Belum Bayar"
+      );
+
+    if (sppError) {
+      throw sppError;
+    }
+
+    const jumlahBelumBayar =
+      (
+        sppBulanIni ||
+        []
+      ).length;
+
+    if (
+      jumlahBelumBayar > 0
+    ) {
+
+      items.push({
+        type: "warning",
+        text:
+          `💳 ${jumlahBelumBayar} tagihan SPP ` +
+          `${namaBulan(bulan)} ${tahun} belum lunas.`
+      });
+
+    }
+
+
+    // ========================================================
+    // 3. ABSENSI GURU
+    // ========================================================
 
     const {
       data: absensiGuru,
-    } =
-      await supabase
-        .from(
-          "absensi_guru"
-        )
-        .select(
-          "guru_id"
-        )
-        .eq(
-          "tanggal",
-          tanggal
-        );
+      error: guruAbsenError
+    } = await supabase
+      .from("absensi_guru")
+      .select("guru_id")
+      .eq(
+        "tanggal",
+        tanggal
+      );
+
+    if (guruAbsenError) {
+      throw guruAbsenError;
+    }
 
     const {
       count: jumlahGuru,
-    } =
-      await supabase
-        .from("pengguna")
-        .select(
-          "id",
-          {
-            count: "exact",
-            head: true,
-          }
-        )
-        .eq(
-          "role",
-          "guru"
-        );
+      error: guruCountError
+    } = await supabase
+      .from("pengguna")
+      .select(
+        "id",
+        {
+          count: "exact",
+          head: true
+        }
+      )
+      .eq(
+        "role",
+        "guru"
+      );
 
-    const recordedGuru =
+    if (guruCountError) {
+      throw guruCountError;
+    }
+
+    const guruSudahAbsen =
       new Set(
         (
           absensiGuru ||
@@ -502,62 +561,89 @@ async function loadNotifikasi() {
         )
       );
 
-    if (
-      jumlahGuru &&
-      recordedGuru.size <
-        jumlahGuru
-    ) {
-      items.push(
-        `👩‍🏫 ${
-          jumlahGuru -
-          recordedGuru.size
-        } guru/pelatih belum mengisi absensi hari ini.`
+    const guruBelumAbsen =
+      Math.max(
+        0,
+        (jumlahGuru || 0) -
+        guruSudahAbsen.size
       );
+
+    if (
+      guruBelumAbsen > 0
+    ) {
+
+      items.push({
+        type: "warning",
+        text:
+          `👩‍🏫 ${guruBelumAbsen} guru/pelatih ` +
+          `belum mengisi absensi hari ini.`
+      });
+
     }
 
 
-    // --------------------------------------------------------
-    // ABSENSI SISWA
-    // --------------------------------------------------------
+    // ========================================================
+    // 4. ABSENSI SISWA
+    // ========================================================
 
     const {
       data: absensiSiswa,
-    } =
-      await supabase
-        .from("absensi")
-        .select(
-          "siswa_id"
-        )
-        .eq(
-          "tanggal",
-          tanggal
-        );
+      error: siswaAbsenError
+    } = await supabase
+      .from("absensi")
+      .select("siswa_id")
+      .eq(
+        "tanggal",
+        tanggal
+      );
+
+    if (siswaAbsenError) {
+      throw siswaAbsenError;
+    }
 
     const {
       count: jumlahSiswa,
-    } =
-      await supabase
-        .from("siswa")
-        .select(
-          "id",
-          {
-            count: "exact",
-            head: true,
-          }
-        );
+      error: siswaCountError
+    } = await supabase
+      .from("siswa")
+      .select(
+        "id",
+        {
+          count: "exact",
+          head: true
+        }
+      );
 
-    if (
-      jumlahSiswa &&
+    if (siswaCountError) {
+      throw siswaCountError;
+    }
+
+    const jumlahAbsenSiswa =
       (
         absensiSiswa ||
         []
-      ).length <
-        jumlahSiswa
-    ) {
-      items.push(
-        "📋 Masih ada siswa yang belum memiliki absensi hari ini."
+      ).length;
+
+    const siswaBelumAbsen =
+      Math.max(
+        0,
+        (jumlahSiswa || 0) -
+        jumlahAbsenSiswa
       );
+
+    if (
+      siswaBelumAbsen > 0
+    ) {
+
+      items.push({
+        type: "warning",
+        text:
+          `📋 ${siswaBelumAbsen} siswa ` +
+          `belum memiliki absensi hari ini.`
+      });
+
     }
+
 
   } catch (error) {
 
@@ -566,52 +652,138 @@ async function loadNotifikasi() {
       error
     );
 
+    count.textContent = "!";
+    count.style.display =
+      "inline-flex";
+
+    panel.innerHTML = `
+      <div
+        style="
+          font-weight:700;
+          color:var(--bad);
+        "
+      >
+        Notifikasi gagal dimuat
+      </div>
+
+      <div
+        class="notif-item"
+      >
+        Silakan coba lagi.
+      </div>
+    `;
+
+    return;
   }
 
+
+  // ==========================================================
+  // JUMLAH NOTIFIKASI
+  //
+  // Yang dianggap "notifikasi" adalah seluruh item.
+  // ==========================================================
 
   count.textContent =
     items.length;
 
   count.style.display =
     items.length
-      ? "inline-block"
+      ? "inline-flex"
       : "none";
 
 
-  panel.innerHTML =
-    items.length
-      ? `
-        <div
-          style="
-            font-weight:700;
-            margin-bottom:6px;
-          "
-        >
-          Perlu Perhatian
-        </div>
+  // ==========================================================
+  // ISI PANEL
+  // ==========================================================
 
-        ${items
-          .map(
-            (item) =>
-              `
-                <div class="notif-item">
-                  ${item}
+  if (
+    items.length === 0
+  ) {
+
+    panel.innerHTML = `
+      <div
+        style="
+          font-weight:700;
+          margin-bottom:6px;
+        "
+      >
+        Semua aman ✨
+      </div>
+
+      <div class="notif-item">
+        Belum ada hal yang perlu ditindaklanjuti.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  panel.innerHTML = `
+    <div
+      style="
+        font-weight:700;
+        margin-bottom:8px;
+      "
+    >
+      Perlu Perhatian
+    </div>
+
+    ${items
+      .map(
+        (item) => {
+
+          if (
+            item.type ===
+            "payment"
+          ) {
+
+            return `
+              <div
+                class="notif-item"
+                style="
+                  cursor:pointer;
+                "
+                onclick="
+                  window.__app.goTo('spp');
+                  setTimeout(
+                    () => {
+                      window.__app.loadSpp();
+                    },
+                    100
+                  );
+                "
+              >
+
+                <div>
+                  ${item.text}
                 </div>
-              `
-          )
-          .join("")}
-      `
-      : `
-        <div
-          style="font-weight:700;"
-        >
-          Semua aman ✨
-        </div>
 
-        <div class="notif-item">
-          Belum ada hal yang perlu ditindaklanjuti.
-        </div>
-      `;
+                <div
+                  style="
+                    margin-top:5px;
+                    font-size:11px;
+                    color:var(--primary-dark);
+                    font-weight:600;
+                  "
+                >
+                  Buka Monitoring SPP →
+                </div>
+
+              </div>
+            `;
+
+          }
+
+          return `
+            <div class="notif-item">
+              ${item.text}
+            </div>
+          `;
+        }
+      )
+      .join("")}
+  `;
 }
 
 
