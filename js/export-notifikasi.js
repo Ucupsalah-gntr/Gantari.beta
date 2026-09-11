@@ -760,7 +760,48 @@ function stopRealtimeNotifications() {
 
   gantarikuRealtimeChannel =
     null;
+  gantarikuRealtimeChannel = supabase
+  .channel("gantariku-admin-realtime")
+
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "spp"
+    },
+    () => {
+      jadwalkanRefreshNotifikasi();
+    }
+  )
+
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "absensi"
+    },
+    () => {
+      jadwalkanRefreshNotifikasi();
+    }
+  )
+
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "absensi_guru"
+    },
+    () => {
+      jadwalkanRefreshNotifikasi();
+    }
+  )
+
+  .subscribe();
 }
+
 
 
 // ============================================================
