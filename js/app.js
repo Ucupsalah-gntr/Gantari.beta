@@ -345,7 +345,11 @@
           currentNav = NAV_CONFIG[currentUserRole]?.[0]?.id || "dasbor";
 
           renderApp();
+
+          if (currentUserRole === "admin") {
+          loadNotifikasi();
           startRealtimeNotifications();
+          }
               
         } catch (error) {
           console.error("Init error:", error);
