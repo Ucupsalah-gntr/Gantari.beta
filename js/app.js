@@ -402,9 +402,10 @@
   loadPerkembanganAnak,
             
   toggleNotifikasi,
+  loadNotifikasi,
   startRealtimeNotifications,
   stopRealtimeNotifications,
-  loadNotifikasi,
+ 
 
   loadFormInputAbsen,
   simpanAbsensiMassal,
