@@ -120,6 +120,8 @@
         } catch (error) {
           console.error("Logout error:", error);
         } finally {
+      stopRealtimeNotifications();
+      
           currentUser = null;
           currentUserRole = null;
           currentNav = "dasbor";
