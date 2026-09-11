@@ -309,6 +309,8 @@
           currentNav = NAV_CONFIG[currentUserRole]?.[0]?.id || "dasbor";
 
           renderApp();
+          startRealtimeNotifications();
+              
         } catch (error) {
           console.error("Init error:", error);
           if (supabase) await supabase.auth.signOut();
@@ -358,8 +360,11 @@
   simpanPerkembangan,
   loadPerkembanganGuru,
   loadPerkembanganAnak,
-
+            
   toggleNotifikasi,
+  startRealtimeNotifications,
+  stopRealtimeNotifications,
+  loadNotifikasi,,
 
   loadFormInputAbsen,
   simpanAbsensiMassal,
