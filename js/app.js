@@ -365,7 +365,7 @@
   toggleNotifikasi,
   startRealtimeNotifications,
   stopRealtimeNotifications,
-  loadNotifikasi,,
+  loadNotifikasi,
 
   loadFormInputAbsen,
   simpanAbsensiMassal,
