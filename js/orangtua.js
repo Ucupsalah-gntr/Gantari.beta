@@ -1240,7 +1240,8 @@ async function uploadBuktiSpp(
       )
     );
   }
-async function debugAksesPembayaran() {
+}
+  async function debugAksesPembayaran() {
   try {
     const {
       data: { user },
