@@ -334,6 +334,9 @@
   tandaiLunas,
   hapusSpp,
 
+  pilihBuktiSpp,
+  uploadBuktiSpp,
+            
   loadGuru,
   loadAbsensiGuruAdmin,
   loadAbsensiSaya,
