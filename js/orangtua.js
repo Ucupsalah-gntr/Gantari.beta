@@ -1,307 +1,1243 @@
 // ============================================================
-      // VIEW: HALAMAN ORANG TUA
-      // ============================================================
+// GANTARIKU — HALAMAN ORANG TUA
+// ============================================================
 
-      // Satu akun orang tua bisa punya lebih dari satu anak (siswa.orang_tua_id
-      // menunjuk ke pengguna.id). Daftar anak & anak yang sedang dipilih
-      // disimpan di sini supaya bisa dipakai bersama oleh ketiga halaman.
-      let anakOrangTuaList = [];
-      let anakTerpilihId = null;
+// Satu akun orang tua bisa memiliki beberapa anak.
+let anakOrangTuaList = [];
+let anakTerpilihId = null;
 
-      async function pastikanAnakOrangTuaDimuat() {
-        if (!supabase || !currentUser) return;
-        if (anakOrangTuaList.length > 0) return;
 
-        const { data, error } = await supabase
-          .from("siswa")
-          .select("id, nama, nis, kelas, tahun_ajaran")
-          .eq("orang_tua_id", currentUser.id)
-          .order("nama", { ascending: true });
+// ============================================================
+// LOAD ANAK ORANG TUA
+// ============================================================
 
-        if (error) {
-          console.error("Error load daftar anak:", error);
-          return;
+async function pastikanAnakOrangTuaDimuat() {
+  if (!supabase || !currentUser) return;
+  if (anakOrangTuaList.length > 0) return;
+
+  const { data, error } = await supabase
+    .from("siswa")
+    .select("id, nama, nis, kelas, tahun_ajaran")
+    .eq("orang_tua_id", currentUser.id)
+    .order("nama", { ascending: true });
+
+  if (error) {
+    console.error(
+      "Error load daftar anak:",
+      error
+    );
+    return;
+  }
+
+  anakOrangTuaList = data || [];
+
+  if (
+    !anakTerpilihId &&
+    anakOrangTuaList.length > 0
+  ) {
+    anakTerpilihId =
+      anakOrangTuaList[0].id;
+  }
+}
+
+
+function anakYangDipilih() {
+  return (
+    anakOrangTuaList.find(
+      (a) =>
+        String(a.id) ===
+        String(anakTerpilihId)
+    ) ||
+    anakOrangTuaList[0] ||
+    null
+  );
+}
+
+
+// ============================================================
+// PILIH ANAK
+// ============================================================
+
+function renderPilihAnakHtml() {
+  if (anakOrangTuaList.length <= 1) {
+    return "";
+  }
+
+  const opsi =
+    anakOrangTuaList
+      .map(
+        (a) => `
+          <option
+            value="${a.id}"
+            ${
+              String(a.id) ===
+              String(anakTerpilihId)
+                ? "selected"
+                : ""
+            }
+          >
+            ${a.nama} — ${a.kelas || "-"}
+          </option>
+        `
+      )
+      .join("");
+
+  return `
+    <div
+      class="controls"
+      style="margin-bottom:16px;"
+    >
+      <select
+        id="pilihAnak"
+        onchange="window.__app.gantiAnak(this.value)"
+      >
+        ${opsi}
+      </select>
+    </div>
+  `;
+}
+
+
+function gantiAnak(id) {
+  anakTerpilihId = id;
+  renderView();
+}
+
+
+// ============================================================
+// RINGKASAN ANAK
+// ============================================================
+
+function renderRingkasanAnak() {
+  return `
+    <div id="pilihAnakWrap"></div>
+
+    <div id="ringkasanAnakBody">
+      <div class="empty">
+        Memuat data anak...
+      </div>
+    </div>
+  `;
+}
+
+
+async function loadRingkasanAnak() {
+  const wrap =
+    document.getElementById(
+      "pilihAnakWrap"
+    );
+
+  const body =
+    document.getElementById(
+      "ringkasanAnakBody"
+    );
+
+  if (!body || !supabase) return;
+
+  await pastikanAnakOrangTuaDimuat();
+
+  if (wrap) {
+    wrap.innerHTML =
+      renderPilihAnakHtml();
+  }
+
+  if (
+    anakOrangTuaList.length === 0
+  ) {
+    body.innerHTML = `
+      <div class="empty">
+        Belum ada data siswa yang terhubung
+        dengan akun ini. Hubungi admin sekolah
+        untuk menautkannya.
+      </div>
+    `;
+    return;
+  }
+
+  const anak = anakYangDipilih();
+
+  try {
+    const today = getNowWIB();
+
+    const bulanIni =
+      today.getMonth() + 1;
+
+    const tahunIni =
+      today.getFullYear();
+
+    const bulanStr =
+      String(bulanIni).padStart(
+        2,
+        "0"
+      );
+
+    const hariTerakhir =
+      new Date(
+        tahunIni,
+        bulanIni,
+        0
+      ).getDate();
+
+    const {
+      data: absensiBulanIni,
+      error: absensiError
+    } = await supabase
+      .from("absensi")
+      .select("status")
+      .eq("siswa_id", anak.id)
+      .gte(
+        "tanggal",
+        `${tahunIni}-${bulanStr}-01`
+      )
+      .lte(
+        "tanggal",
+        `${tahunIni}-${bulanStr}-${String(
+          hariTerakhir
+        ).padStart(2, "0")}`
+      );
+
+    if (absensiError) {
+      throw absensiError;
+    }
+
+    const hitung = {
+      H: 0,
+      I: 0,
+      S: 0,
+      A: 0
+    };
+
+    (absensiBulanIni || [])
+      .forEach((a) => {
+        if (
+          hitung[a.status] !==
+          undefined
+        ) {
+          hitung[a.status]++;
         }
+      });
 
-        anakOrangTuaList = data || [];
-        if (!anakTerpilihId && anakOrangTuaList.length > 0) {
-          anakTerpilihId = anakOrangTuaList[0].id;
-        }
-      }
+    const {
+      data: sppBulanIni,
+      error: sppError
+    } = await supabase
+      .from("spp")
+      .select(
+        "status, nominal, bukti_bayar_url"
+      )
+      .eq(
+        "siswa_id",
+        anak.id
+      )
+      .eq(
+        "bulan",
+        bulanIni
+      )
+      .eq(
+        "tahun",
+        tahunIni
+      )
+      .maybeSingle();
 
-      function anakYangDipilih() {
-        return anakOrangTuaList.find((a) => a.id === anakTerpilihId) || anakOrangTuaList[0] || null;
-      }
+    if (sppError) {
+      throw sppError;
+    }
 
-      function renderPilihAnakHtml() {
-        if (anakOrangTuaList.length <= 1) return "";
-        const opsi = anakOrangTuaList
-          .map((a) => `<option value="${a.id}" ${a.id === anakTerpilihId ? "selected" : ""}>${a.nama} — ${a.kelas || "-"}</option>`)
-          .join("");
-        return `
-          <div class="controls" style="margin-bottom:16px;">
-            <select id="pilihAnak" onchange="window.__app.gantiAnak(this.value)">${opsi}</select>
+    body.innerHTML = `
+      <div class="section">
+
+        <div class="section-head">
+          <h2>${anak.nama}</h2>
+        </div>
+
+        <div class="section-body">
+
+          <p
+            style="
+              margin:0 0 18px;
+              color:var(--ink-soft);
+            "
+          >
+            NIS: ${anak.nis || "-"}
+            &middot;
+            Kelas: ${anak.kelas || "-"}
+            &middot;
+            Tahun Ajaran:
+            ${anak.tahun_ajaran || "-"}
+          </p>
+
+          <div class="stat-row">
+
+            <div class="stat c-teal">
+              <div class="num">
+                ${hitung.H}
+              </div>
+              <div class="lbl">
+                Hadir — ${namaBulan(bulanIni)}
+              </div>
+            </div>
+
+            <div class="stat c-warn">
+              <div class="num">
+                ${hitung.I}
+              </div>
+              <div class="lbl">
+                Izin — ${namaBulan(bulanIni)}
+              </div>
+            </div>
+
+            <div class="stat c-sick">
+              <div class="num">
+                ${hitung.S}
+              </div>
+              <div class="lbl">
+                Sakit — ${namaBulan(bulanIni)}
+              </div>
+            </div>
+
+            <div class="stat c-bad">
+              <div class="num">
+                ${hitung.A}
+              </div>
+              <div class="lbl">
+                Alpa — ${namaBulan(bulanIni)}
+              </div>
+            </div>
+
           </div>
-        `;
-      }
 
-      function gantiAnak(id) {
-        anakTerpilihId = id;
-        renderView();
-      }
+          <div
+            style="
+              margin-top:20px;
+              display:flex;
+              align-items:center;
+              gap:10px;
+              flex-wrap:wrap;
+            "
+          >
 
-      // ------------------------------------------------------
-      // Ringkasan Anak
-      // ------------------------------------------------------
-      function renderRingkasanAnak() {
-        return `
-          <div id="pilihAnakWrap"></div>
-          <div id="ringkasanAnakBody"><div class="empty">Memuat data anak...</div></div>
-        `;
-      }
+            <span
+              class="badge ${
+                sppBulanIni
+                  ? sppBulanIni.status ===
+                    "Lunas"
+                    ? "badge-good"
+                    : sppBulanIni.status ===
+                      "Menunggu Verifikasi"
+                    ? "badge-warn"
+                    : "badge-bad"
+                  : "badge-muted"
+              }"
+            >
+              SPP
+              ${namaBulan(bulanIni)}
+              ${tahunIni}:
+              ${
+                sppBulanIni
+                  ? sppBulanIni.status
+                  : "Belum ada tagihan"
+              }
+            </span>
 
-      async function loadRingkasanAnak() {
-        const wrap = document.getElementById("pilihAnakWrap");
-        const body = document.getElementById("ringkasanAnakBody");
-        if (!body || !supabase) return;
-
-        await pastikanAnakOrangTuaDimuat();
-        if (wrap) wrap.innerHTML = renderPilihAnakHtml();
-
-        if (anakOrangTuaList.length === 0) {
-          body.innerHTML = `<div class="empty">Belum ada data siswa yang terhubung dengan akun ini. Hubungi admin sekolah untuk menautkannya.</div>`;
-          return;
-        }
-
-        const anak = anakYangDipilih();
-
-        try {
-          const today = new Date();
-          const bulanIni = today.getMonth() + 1;
-          const tahunIni = today.getFullYear();
-          const bulanStr = String(bulanIni).padStart(2, "0");
-          const hariTerakhir = new Date(tahunIni, bulanIni, 0).getDate();
-
-          const { data: absensiBulanIni, error: absensiError } = await supabase
-            .from("absensi")
-            .select("status")
-            .eq("siswa_id", anak.id)
-            .gte("tanggal", `${tahunIni}-${bulanStr}-01`)
-            .lte("tanggal", `${tahunIni}-${bulanStr}-${String(hariTerakhir).padStart(2, "0")}`);
-          if (absensiError) throw absensiError;
-
-          const hitung = { H: 0, I: 0, S: 0, A: 0 };
-          (absensiBulanIni || []).forEach((a) => {
-            if (hitung[a.status] !== undefined) hitung[a.status]++;
-          });
-
-          const { data: sppBulanIni, error: sppError } = await supabase
-            .from("spp")
-            .select("status, nominal")
-            .eq("siswa_id", anak.id)
-            .eq("bulan", bulanIni)
-            .eq("tahun", tahunIni)
-            .maybeSingle();
-          if (sppError) throw sppError;
-
-          body.innerHTML = `
-            <div class="section">
-              <div class="section-head"><h2>${anak.nama}</h2></div>
-              <div class="section-body">
-                <p style="margin:0 0 18px; color:var(--ink-soft);">
-                  NIS: ${anak.nis || "-"} &middot; Kelas: ${anak.kelas || "-"} &middot; Tahun Ajaran: ${anak.tahun_ajaran || "-"}
-                </p>
-
-                <div class="stat-row">
-                  <div class="stat c-teal"><div class="num">${hitung.H}</div><div class="lbl">Hadir — ${namaBulan(bulanIni)}</div></div>
-                  <div class="stat c-warn"><div class="num">${hitung.I}</div><div class="lbl">Izin — ${namaBulan(bulanIni)}</div></div>
-                  <div class="stat c-sick"><div class="num">${hitung.S}</div><div class="lbl">Sakit — ${namaBulan(bulanIni)}</div></div>
-                  <div class="stat c-bad"><div class="num">${hitung.A}</div><div class="lbl">Alpa — ${namaBulan(bulanIni)}</div></div>
-                </div>
-
-                <div style="margin-top:20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                  <span class="badge ${sppBulanIni ? (sppBulanIni.status === "Lunas" ? "badge-good" : "badge-bad") : "badge-muted"}">
-                    SPP ${namaBulan(bulanIni)} ${tahunIni}: ${sppBulanIni ? sppBulanIni.status : "Belum ada tagihan"}
+            ${
+              sppBulanIni
+                ? `
+                  <span
+                    style="
+                      color:var(--ink-soft);
+                      font-size:13px;
+                    "
+                  >
+                    ${formatRupiah(
+                      sppBulanIni.nominal
+                    )}
                   </span>
-                  ${sppBulanIni ? `<span style="color:var(--ink-soft); font-size:13px;">${formatRupiah(sppBulanIni.nominal)}</span>` : ""}
-                </div>
-              </div>
-            </div>
-          `;
-        } catch (error) {
-          console.error("Error load ringkasan anak:", error);
-          body.innerHTML = `<div class="empty" style="color:#E11D48;">Gagal memuat ringkasan anak.</div>`;
-        }
-      }
+                `
+                : ""
+            }
 
-      // ------------------------------------------------------
-      // Kehadiran Anak
-      // ------------------------------------------------------
-      function renderAbsenAnak() {
-        const today = new Date();
-        const todayStr = today.toISOString().slice(0, 10);
-        const awalBulanStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-
-        return `
-          <div id="pilihAnakWrap"></div>
-          <div class="section">
-            <div class="section-head">
-              <h2>Kehadiran Anak</h2>
-              <div class="controls">
-                <input type="date" id="absenAnakDari" value="${awalBulanStr}">
-                <input type="date" id="absenAnakSampai" value="${todayStr}">
-                <button class="btn secondary" onclick="window.__app.loadAbsenAnak()">Tampilkan</button>
-              </div>
-            </div>
-            <div class="section-body">
-              <table>
-                <thead><tr><th>Tanggal</th><th>Status</th><th>Keterangan</th></tr></thead>
-                <tbody id="daftarAbsenAnak">
-                  <tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>
-                </tbody>
-              </table>
-            </div>
           </div>
-        `;
-      }
 
-      async function loadAbsenAnak() {
-        const wrap = document.getElementById("pilihAnakWrap");
-        const tbody = document.getElementById("daftarAbsenAnak");
-        if (!tbody || !supabase) return;
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error(
+      "Error load ringkasan anak:",
+      error
+    );
 
-        await pastikanAnakOrangTuaDimuat();
-        if (wrap) wrap.innerHTML = renderPilihAnakHtml();
+    body.innerHTML = `
+      <div
+        class="empty"
+        style="color:#E11D48;"
+      >
+        Gagal memuat ringkasan anak.
+      </div>
+    `;
+  }
+}
 
-        if (anakOrangTuaList.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Belum ada data siswa yang terhubung dengan akun ini.</td></tr>`;
-          return;
-        }
 
-        const anak = anakYangDipilih();
-        const dari = document.getElementById("absenAnakDari")?.value;
-        const sampai = document.getElementById("absenAnakSampai")?.value;
+// ============================================================
+// KEHADIRAN ANAK
+// ============================================================
 
-        if (!dari || !sampai) {
-          tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Pilih rentang tanggal terlebih dahulu.</td></tr>`;
-          return;
-        }
+function renderAbsenAnak() {
+  const today = getNowWIB();
 
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>`;
+  const todayStr =
+    getTodayWIBString();
 
-        try {
-          const { data, error } = await supabase
-            .from("absensi")
-            .select("tanggal, status, keterangan")
-            .eq("siswa_id", anak.id)
-            .gte("tanggal", dari)
-            .lte("tanggal", sampai)
-            .order("tanggal", { ascending: false });
-          if (error) throw error;
+  const awalBulanStr =
+    `${today.getFullYear()}-${String(
+      today.getMonth() + 1
+    ).padStart(2, "0")}-01`;
 
-          if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Tidak ada data absensi pada rentang ini.</td></tr>`;
-            return;
-          }
+  return `
+    <div id="pilihAnakWrap"></div>
 
-          tbody.innerHTML = data
-            .map(
-              (a) => `
+    <div class="section">
+
+      <div class="section-head">
+
+        <h2>Kehadiran Anak</h2>
+
+        <div class="controls">
+
+          <input
+            type="date"
+            id="absenAnakDari"
+            value="${awalBulanStr}"
+          >
+
+          <input
+            type="date"
+            id="absenAnakSampai"
+            value="${todayStr}"
+          >
+
+          <button
+            class="btn secondary"
+            onclick="window.__app.loadAbsenAnak()"
+          >
+            Tampilkan
+          </button>
+
+        </div>
+
+      </div>
+
+      <div class="section-body">
+
+        <table>
+
+          <thead>
             <tr>
-              <td>${a.tanggal || "-"}</td>
-              <td><span class="badge ${statusBadgeAbsensi(a.status)}">${labelStatusAbsensi(a.status)}</span></td>
-              <td>${a.keterangan || "-"}</td>
+              <th>Tanggal</th>
+              <th>Status</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+
+          <tbody id="daftarAbsenAnak">
+
+            <tr>
+              <td
+                colspan="3"
+                style="text-align:center;"
+              >
+                Memuat data...
+              </td>
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+async function loadAbsenAnak() {
+  const wrap =
+    document.getElementById(
+      "pilihAnakWrap"
+    );
+
+  const tbody =
+    document.getElementById(
+      "daftarAbsenAnak"
+    );
+
+  if (!tbody || !supabase) return;
+
+  await pastikanAnakOrangTuaDimuat();
+
+  if (wrap) {
+    wrap.innerHTML =
+      renderPilihAnakHtml();
+  }
+
+  if (
+    anakOrangTuaList.length === 0
+  ) {
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="3"
+          style="text-align:center;"
+        >
+          Belum ada data siswa yang
+          terhubung dengan akun ini.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const anak =
+    anakYangDipilih();
+
+  const dari =
+    document.getElementById(
+      "absenAnakDari"
+    )?.value;
+
+  const sampai =
+    document.getElementById(
+      "absenAnakSampai"
+    )?.value;
+
+  if (!dari || !sampai) {
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="3"
+          style="text-align:center;"
+        >
+          Pilih rentang tanggal terlebih dahulu.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = `
+    <tr>
+      <td
+        colspan="3"
+        style="text-align:center;"
+      >
+        Memuat data...
+      </td>
+    </tr>
+  `;
+
+  try {
+    const {
+      data,
+      error
+    } = await supabase
+      .from("absensi")
+      .select(
+        "tanggal, status, keterangan"
+      )
+      .eq(
+        "siswa_id",
+        anak.id
+      )
+      .gte(
+        "tanggal",
+        dari
+      )
+      .lte(
+        "tanggal",
+        sampai
+      )
+      .order(
+        "tanggal",
+        {
+          ascending: false
+        }
+      );
+
+    if (error) throw error;
+
+    if (
+      !data ||
+      data.length === 0
+    ) {
+      tbody.innerHTML = `
+        <tr>
+          <td
+            colspan="3"
+            style="text-align:center;"
+          >
+            Tidak ada data absensi
+            pada rentang ini.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML =
+      data
+        .map(
+          (a) => `
+            <tr>
+
+              <td>
+                ${a.tanggal || "-"}
+              </td>
+
+              <td>
+                <span
+                  class="badge ${statusBadgeAbsensi(
+                    a.status
+                  )}"
+                >
+                  ${labelStatusAbsensi(
+                    a.status
+                  )}
+                </span>
+              </td>
+
+              <td>
+                ${a.keterangan || "-"}
+              </td>
+
             </tr>
           `
-            )
-            .join("");
-        } catch (error) {
-          console.error("Error load absen anak:", error);
-          tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#E11D48;">Gagal memuat data absensi.</td></tr>`;
-        }
-      }
+        )
+        .join("");
 
-      // ------------------------------------------------------
-      // Status SPP (anak)
-      // ------------------------------------------------------
-      function renderSppAnak() {
-        const tahunSekarang = new Date().getFullYear();
-        const tahunOptions =
-          `<option value="">Semua tahun</option>` +
-          [tahunSekarang, tahunSekarang - 1, tahunSekarang - 2]
-            .map((t) => `<option value="${t}" ${t === tahunSekarang ? "selected" : ""}>${t}</option>`)
-            .join("");
+  } catch (error) {
 
-        return `
-          <div id="pilihAnakWrap"></div>
-          <div class="section">
-            <div class="section-head">
-              <h2>Status SPP</h2>
-              <div class="controls">
-                <select id="sppAnakTahun">${tahunOptions}</select>
-                <button class="btn secondary" onclick="window.__app.loadSppAnak()">Tampilkan</button>
-              </div>
-            </div>
-            <div class="section-body">
-              <table>
-                <thead><tr><th>Bulan</th><th>Tahun</th><th class="num">Nominal</th><th>Status</th><th>Tanggal Bayar</th></tr></thead>
-                <tbody id="daftarSppAnak">
-                  <tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      }
+    console.error(
+      "Error load absen anak:",
+      error
+    );
 
-      async function loadSppAnak() {
-        const wrap = document.getElementById("pilihAnakWrap");
-        const tbody = document.getElementById("daftarSppAnak");
-        if (!tbody || !supabase) return;
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="3"
+          style="
+            text-align:center;
+            color:#E11D48;
+          "
+        >
+          Gagal memuat data absensi.
+        </td>
+      </tr>
+    `;
+  }
+}
 
-        await pastikanAnakOrangTuaDimuat();
-        if (wrap) wrap.innerHTML = renderPilihAnakHtml();
 
-        if (anakOrangTuaList.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Belum ada data siswa yang terhubung dengan akun ini.</td></tr>`;
-          return;
-        }
+// ============================================================
+// STATUS SPP ANAK
+// ============================================================
 
-        const anak = anakYangDipilih();
-        const tahun = document.getElementById("sppAnakTahun")?.value;
+function renderSppAnak() {
 
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Memuat data...</td></tr>`;
+  const tahunSekarang =
+    getNowWIB().getFullYear();
 
-        try {
-          let query = supabase
-            .from("spp")
-            .select("bulan, tahun, nominal, status, tanggal_bayar")
-            .eq("siswa_id", anak.id);
-          if (tahun) query = query.eq("tahun", Number(tahun));
+  const tahunOptions =
+    `<option value="">
+       Semua tahun
+     </option>` +
 
-          const { data, error } = await query.order("tahun", { ascending: false }).order("bulan", { ascending: false });
-          if (error) throw error;
-
-          if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Belum ada data SPP.</td></tr>`;
-            return;
-          }
-
-          tbody.innerHTML = data
-            .map(
-              (s) => `
-            <tr>
-              <td>${namaBulan(s.bulan)}</td>
-              <td>${s.tahun}</td>
-              <td class="num">${formatRupiah(s.nominal)}</td>
-              <td><span class="badge ${s.status === "Lunas" ? "badge-good" : "badge-bad"}">${s.status}</span></td>
-              <td>${s.tanggal_bayar || "-"}</td>
-            </tr>
+    [
+      tahunSekarang,
+      tahunSekarang - 1,
+      tahunSekarang - 2
+    ]
+      .map(
+        (t) =>
           `
-            )
-            .join("");
-        } catch (error) {
-          console.error("Error load SPP anak:", error);
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#E11D48;">Gagal memuat data SPP.</td></tr>`;
+          <option
+            value="${t}"
+            ${
+              t === tahunSekarang
+                ? "selected"
+                : ""
+            }
+          >
+            ${t}
+          </option>
+          `
+      )
+      .join("");
+
+  return `
+    <div id="pilihAnakWrap"></div>
+
+    <div class="section">
+
+      <div class="section-head">
+
+        <h2>Status SPP</h2>
+
+        <div class="controls">
+
+          <select id="sppAnakTahun">
+            ${tahunOptions}
+          </select>
+
+          <button
+            class="btn secondary"
+            onclick="window.__app.loadSppAnak()"
+          >
+            Tampilkan
+          </button>
+
+        </div>
+
+      </div>
+
+      <div class="section-body">
+
+        <table>
+
+          <thead>
+
+            <tr>
+              <th>Bulan</th>
+              <th>Tahun</th>
+              <th class="num">Nominal</th>
+              <th>Status</th>
+              <th>Tanggal Bayar</th>
+              <th>Aksi</th>
+            </tr>
+
+          </thead>
+
+          <tbody id="daftarSppAnak">
+
+            <tr>
+              <td
+                colspan="6"
+                style="text-align:center;"
+              >
+                Memuat data...
+              </td>
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// LOAD SPP ANAK
+// ============================================================
+
+async function loadSppAnak() {
+
+  const wrap =
+    document.getElementById(
+      "pilihAnakWrap"
+    );
+
+  const tbody =
+    document.getElementById(
+      "daftarSppAnak"
+    );
+
+  if (!tbody || !supabase) return;
+
+  await pastikanAnakOrangTuaDimuat();
+
+  if (wrap) {
+    wrap.innerHTML =
+      renderPilihAnakHtml();
+  }
+
+  if (
+    anakOrangTuaList.length === 0
+  ) {
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="6"
+          style="text-align:center;"
+        >
+          Belum ada data siswa yang
+          terhubung dengan akun ini.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const anak =
+    anakYangDipilih();
+
+  const tahun =
+    document.getElementById(
+      "sppAnakTahun"
+    )?.value;
+
+  tbody.innerHTML = `
+    <tr>
+      <td
+        colspan="6"
+        style="text-align:center;"
+      >
+        Memuat data...
+      </td>
+    </tr>
+  `;
+
+  try {
+
+    let query =
+      supabase
+        .from("spp")
+        .select(
+          `
+          id,
+          bulan,
+          tahun,
+          nominal,
+          status,
+          tanggal_bayar,
+          bukti_bayar_url
+          `
+        )
+        .eq(
+          "siswa_id",
+          anak.id
+        );
+
+    if (tahun) {
+      query =
+        query.eq(
+          "tahun",
+          Number(tahun)
+        );
+    }
+
+    const {
+      data,
+      error
+    } = await query
+      .order(
+        "tahun",
+        {
+          ascending: false
         }
-      }
+      )
+      .order(
+        "bulan",
+        {
+          ascending: false
+        }
+      );
+
+    if (error) throw error;
+
+    if (
+      !data ||
+      data.length === 0
+    ) {
+      tbody.innerHTML = `
+        <tr>
+          <td
+            colspan="6"
+            style="text-align:center;"
+          >
+            Belum ada data SPP.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML =
+      data
+        .map(
+          (s) => {
+
+            let aksi = "-";
+
+            if (
+              s.status ===
+              "Belum Bayar"
+            ) {
+              aksi = `
+                <button
+                  class="btn small"
+                  onclick="window.__app.pilihBuktiSpp('${s.id}')"
+                >
+                  📎 Kirim Bukti
+                </button>
+
+                <input
+                  type="file"
+                  id="fileSpp_${s.id}"
+                  accept="image/jpeg,image/png,application/pdf"
+                  style="display:none;"
+                  onchange="window.__app.uploadBuktiSpp('${s.id}', this.files[0])"
+                >
+              `;
+            }
+
+            if (
+              s.status ===
+              "Menunggu Verifikasi"
+            ) {
+              aksi = `
+                <span
+                  style="
+                    font-size:12px;
+                    color:var(--ink-soft);
+                  "
+                >
+                  Bukti sudah dikirim,
+                  menunggu verifikasi admin.
+                </span>
+
+                ${
+                  s.bukti_bayar_url
+                    ? `
+                      <div style="margin-top:5px;">
+                        <a
+                          href="${s.bukti_bayar_url}"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Lihat bukti
+                        </a>
+                      </div>
+                    `
+                    : ""
+                }
+              `;
+            }
+
+            if (
+              s.status ===
+              "Lunas"
+            ) {
+              aksi = `
+                <span
+                  style="
+                    font-size:12px;
+                    color:#15803D;
+                  "
+                >
+                  ✓ Pembayaran terverifikasi
+                </span>
+              `;
+            }
+
+            return `
+              <tr>
+
+                <td>
+                  ${namaBulan(s.bulan)}
+                </td>
+
+                <td>
+                  ${s.tahun}
+                </td>
+
+                <td class="num">
+                  ${formatRupiah(s.nominal)}
+                </td>
+
+                <td>
+
+                  <span
+                    class="badge ${
+                      s.status ===
+                      "Lunas"
+                        ? "badge-good"
+                        : s.status ===
+                          "Menunggu Verifikasi"
+                        ? "badge-warn"
+                        : "badge-bad"
+                    }"
+                  >
+                    ${s.status}
+                  </span>
+
+                </td>
+
+                <td>
+                  ${s.tanggal_bayar || "-"}
+                </td>
+
+                <td>
+                  ${aksi}
+                </td>
+
+              </tr>
+            `;
+          }
+        )
+        .join("");
+
+  } catch (error) {
+
+    console.error(
+      "Error load SPP anak:",
+      error
+    );
+
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="6"
+          style="
+            text-align:center;
+            color:#E11D48;
+          "
+        >
+          Gagal memuat data SPP.
+        </td>
+      </tr>
+    `;
+  }
+}
+
+
+// ============================================================
+// PILIH FILE BUKTI
+// ============================================================
+
+function pilihBuktiSpp(id) {
+
+  const input =
+    document.getElementById(
+      `fileSpp_${id}`
+    );
+
+  if (!input) return;
+
+  input.click();
+}
+
+
+// ============================================================
+// UPLOAD BUKTI PEMBAYARAN
+// ============================================================
+
+async function uploadBuktiSpp(
+  sppId,
+  file
+) {
+
+  if (!file) return;
+
+  if (!supabase) {
+    alert(
+      "Supabase belum terhubung."
+    );
+    return;
+  }
+
+  // Maksimal 5 MB
+  const maxSize =
+    5 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    alert(
+      "Ukuran file maksimal 5 MB."
+    );
+    return;
+  }
+
+  const tipeDiizinkan = [
+    "image/jpeg",
+    "image/png",
+    "application/pdf"
+  ];
+
+  if (
+    !tipeDiizinkan.includes(
+      file.type
+    )
+  ) {
+    alert(
+      "File harus berupa JPG, PNG, atau PDF."
+    );
+    return;
+  }
+
+  try {
+
+    // Ambil data SPP yang dipilih
+    const {
+      data: spp,
+      error: sppError
+    } = await supabase
+      .from("spp")
+      .select(
+        `
+        id,
+        siswa_id,
+        bulan,
+        tahun,
+        status
+        `
+      )
+      .eq(
+        "id",
+        sppId
+      )
+      .single();
+
+    if (sppError) {
+      throw sppError;
+    }
+
+    if (
+      !spp ||
+      spp.status !==
+        "Belum Bayar"
+    ) {
+      alert(
+        "Tagihan ini tidak dapat menerima bukti pembayaran."
+      );
+      return;
+    }
+
+    // Pastikan SPP memang milik anak akun ini
+    await pastikanAnakOrangTuaDimuat();
+
+    const anak = anakOrangTuaList.find(
+      (a) =>
+        String(a.id) ===
+        String(spp.siswa_id)
+    );
+
+    if (!anak) {
+      alert(
+        "Anda tidak memiliki akses ke tagihan ini."
+      );
+      return;
+    }
+
+    const extension =
+      file.name.includes(".")
+        ? file.name
+            .split(".")
+            .pop()
+            .toLowerCase()
+        : "bin";
+
+    const safeName =
+      `spp-${spp.tahun}-${String(
+        spp.bulan
+      ).padStart(2, "0")}-${Date.now()}.${extension}`;
+
+    const folder =
+      currentUser.id;
+
+    const filePath =
+      `${folder}/${safeName}`;
+
+    // Upload
+    const {
+      error: uploadError
+    } = await supabase
+      .storage
+      .from("bukti-pembayaran")
+      .upload(
+        filePath,
+        file,
+        {
+          cacheControl: "3600",
+          upsert: false
+        }
+      );
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // Ambil URL publik
+    const {
+      data: publicData
+    } = supabase
+      .storage
+      .from("bukti-pembayaran")
+      .getPublicUrl(
+        filePath
+      );
+
+    const publicUrl =
+      publicData?.publicUrl;
+
+    if (!publicUrl) {
+      throw new Error(
+        "URL bukti pembayaran tidak berhasil dibuat."
+      );
+    }
+
+    // Update SPP
+    const {
+      error: updateError
+    } = await supabase
+      .from("spp")
+      .update({
+        bukti_bayar_url:
+          publicUrl,
+        status:
+          "Menunggu Verifikasi"
+      })
+      .eq(
+        "id",
+        sppId
+      );
+
+    if (updateError) {
+      // Bersihkan file bila update DB gagal
+      await supabase
+        .storage
+        .from("bukti-pembayaran")
+        .remove([
+          filePath
+        ]);
+
+      throw updateError;
+    }
+
+    alert(
+      "✅ Bukti pembayaran berhasil dikirim.\n\n" +
+      "Status SPP sekarang: Menunggu Verifikasi."
+    );
+
+    await loadSppAnak();
+
+  } catch (error) {
+
+    console.error(
+      "Error upload bukti:",
+      error
+    );
+
+    alert(
+      "Gagal mengirim bukti pembayaran:\n\n" +
+      (
+        error?.message ||
+        "Terjadi kesalahan."
+      )
+    );
+  }
+}
