@@ -657,87 +657,102 @@ function startRealtimeNotifications() {
 
   if (
     !supabase ||
-    currentUserRole !==
-      "admin"
+    currentUserRole !== "admin"
   ) {
     return;
   }
 
+  // Jangan membuat subscription baru
+  // kalau sudah ada yang aktif.
+  if (gantarikuRealtimeChannel) {
+    console.log(
+      "Gantariku Realtime sudah aktif."
+    );
+    return;
+  }
 
-  // Hindari subscription ganda.
-  stopRealtimeNotifications();
+  console.log(
+    "Memulai Gantariku Realtime..."
+  );
 
-
-  gantarikuRealtimeChannel =
+  const channel =
     supabase
       .channel(
         "gantariku-admin-realtime"
       )
 
-      // ------------------------------------------------------
-      // SPP
-      // ------------------------------------------------------
-
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "spp",
+          table: "spp"
         },
-        (payload) => {
-
+        () => {
           console.log(
-            "Realtime SPP:",
-            payload.eventType
+            "Realtime: perubahan SPP"
           );
 
           jadwalkanRefreshNotifikasi();
         }
       )
 
-      // ------------------------------------------------------
-      // ABSENSI SISWA
-      // ------------------------------------------------------
-
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "absensi",
+          table: "absensi"
         },
         () => {
-          jadwalkanRefreshNotifikasi();
-        }
-      )
-
-      // ------------------------------------------------------
-      // ABSENSI GURU
-      // ------------------------------------------------------
-
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "absensi_guru",
-        },
-        () => {
-          jadwalkanRefreshNotifikasi();
-        }
-      )
-
-      .subscribe(
-        (status) => {
-
           console.log(
-            "Gantariku Realtime:",
-            status
+            "Realtime: perubahan absensi siswa"
           );
 
+          jadwalkanRefreshNotifikasi();
+        }
+      )
+
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "absensi_guru"
+        },
+        () => {
+          console.log(
+            "Realtime: perubahan absensi guru"
+          );
+
+          jadwalkanRefreshNotifikasi();
         }
       );
+
+  // Simpan channel SEBELUM subscribe.
+  // Dengan demikian pemanggilan kedua
+  // langsung berhenti di guard di atas.
+  gantarikuRealtimeChannel =
+    channel;
+
+  channel.subscribe(
+    (status) => {
+      console.log(
+        "Gantariku Realtime:",
+        status
+      );
+
+      if (
+        status ===
+          "CHANNEL_ERROR" ||
+        status ===
+          "TIMED_OUT"
+      ) {
+        gantarikuRealtimeChannel =
+          null;
+      }
+    }
+  );
 }
 
 
@@ -755,51 +770,10 @@ function stopRealtimeNotifications() {
     supabase.removeChannel(
       gantarikuRealtimeChannel
     );
-
   }
 
   gantarikuRealtimeChannel =
     null;
-  gantarikuRealtimeChannel = supabase
-  .channel("gantariku-admin-realtime")
-
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "spp"
-    },
-    () => {
-      jadwalkanRefreshNotifikasi();
-    }
-  )
-
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "absensi"
-    },
-    () => {
-      jadwalkanRefreshNotifikasi();
-    }
-  )
-
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "absensi_guru"
-    },
-    () => {
-      jadwalkanRefreshNotifikasi();
-    }
-  )
-
-  .subscribe();
 }
 
 
