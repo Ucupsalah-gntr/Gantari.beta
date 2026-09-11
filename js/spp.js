@@ -1016,7 +1016,7 @@ async function loadSpp() {
 
 
             return `
-              <tr>
+              <tr data-spp-id="${s.id}">
 
                 <td>
                   ${s.siswa?.nama || "-"}
