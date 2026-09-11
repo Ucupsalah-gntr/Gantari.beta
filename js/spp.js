@@ -1,113 +1,97 @@
 // ============================================================
-// GANTARIKU — MONITORING SPP & VERIFIKASI PEMBAYARAN
+// GANTARIKU — MONITORING SPP TAHUNAN
 // ============================================================
 
+let sppTahunanData = [];
+let sppTahunanSiswa = [];
+let sppTahunanTahun = null;
+
+const SPP_BULAN = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+];
+
+function sppStatusClass(status) {
+  if (status === "Lunas") return "spp-lunas";
+  if (status === "Menunggu Verifikasi") return "spp-pending";
+  if (status === "Belum Bayar") return "spp-belum";
+  return "spp-kosong";
+}
+
+function sppStatusIcon(status) {
+  if (status === "Lunas") return "✓";
+  if (status === "Menunggu Verifikasi") return "⏳";
+  if (status === "Belum Bayar") return "!";
+  return "—";
+}
 
 // ============================================================
-// VIEW MONITORING SPP
+// VIEW
 // ============================================================
 
 function renderSpp() {
-  const now = getNowWIB();
-
-  const bulanOptions = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
-  ]
-    .map(
-      (nm, i) =>
-        `<option value="${i + 1}" ${
-          i + 1 === now.getMonth() + 1
-            ? "selected"
-            : ""
-        }>${nm}</option>`
-    )
-    .join("");
-
-  const tahunSekarang =
-    now.getFullYear();
+  const tahunSekarang = getNowWIB().getFullYear();
 
   const tahunOptions = [
     tahunSekarang - 1,
     tahunSekarang,
-    tahunSekarang + 1,
+    tahunSekarang + 1
   ]
     .map(
-      (t) =>
-        `<option value="${t}" ${
-          t === tahunSekarang
-            ? "selected"
-            : ""
-        }>${t}</option>`
+      (tahun) => `
+        <option value="${tahun}" ${
+          tahun === tahunSekarang ? "selected" : ""
+        }>${tahun}</option>
+      `
     )
     .join("");
 
   return `
-    <div class="section">
+    <div class="section spp-annual-section">
 
       <div class="section-head">
+        <div>
+          <h2>Monitoring SPP Tahunan</h2>
+          <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">
+            Pantau pembayaran seluruh siswa dalam satu tahun.
+          </div>
+        </div>
 
-        <h2>Monitoring SPP</h2>
-
-        <div class="controls">
-
-          <select id="filterBulanSpp">
-            ${bulanOptions}
-          </select>
-
+        <div class="controls spp-toolbar">
           <select id="filterTahunSpp">
             ${tahunOptions}
           </select>
 
-          <select id="filterStatusSpp">
-
-            <option value="">
-              Semua status
-            </option>
-
-            <option value="Lunas">
-              Lunas
-            </option>
-
-            <option value="Belum Bayar">
-              Belum Bayar
-            </option>
-
-            <option value="Menunggu Verifikasi">
-              Menunggu Verifikasi
-            </option>
-
+          <select id="filterKelasSpp">
+            <option value="">Semua Kelas</option>
           </select>
 
-          <button
-            class="btn secondary"
-            onclick="window.__app.loadSpp()"
+          <input
+            type="text"
+            id="filterCariSpp"
+            placeholder="Cari nama / NIS..."
+            class="spp-search"
           >
-            Tampilkan
-          </button>
+
+          <select id="filterStatusSpp">
+            <option value="">Semua Status</option>
+            <option value="Lunas">Lunas</option>
+            <option value="Menunggu Verifikasi">Menunggu Verifikasi</option>
+            <option value="Belum Bayar">Belum Bayar</option>
+          </select>
 
           <button
             class="btn secondary"
             onclick="window.__app.exportSppCsv()"
           >
-            ⬇ Export CSV
+            ⬇ Export
           </button>
 
           <button
             class="btn secondary"
             onclick="window.__app.buatTagihanBulanan()"
           >
-            ⚡ Buat Tagihan Bulanan
+            ⚡ Buat Tagihan
           </button>
 
           <button
@@ -116,23 +100,16 @@ function renderSpp() {
           >
             + Tambah Tagihan
           </button>
-
         </div>
-
       </div>
 
-
-      <!-- ======================================================
+      <!-- ====================================================
            FORM TAMBAH SPP
-           ====================================================== -->
+           ==================================================== -->
 
       <div
         id="formSppContainer"
-        style="
-          display:none;
-          padding:20px;
-          border-bottom:1px solid var(--line);
-        "
+        style="display:none;padding:20px;border-bottom:1px solid var(--line);"
       >
 
         <h3 style="margin-top:0;">
@@ -144,93 +121,62 @@ function renderSpp() {
           <div
             style="
               display:grid;
-              grid-template-columns:
-                repeat(auto-fit,minmax(200px,1fr));
+              grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
               gap:15px;
             "
           >
 
             <div class="form-group">
-
               <label>Siswa</label>
-
-              <select
-                id="sppSiswaId"
-                required
-              >
-                <option value="">
-                  Memuat daftar siswa...
-                </option>
+              <select id="sppSiswaId" required>
+                <option value="">Memuat siswa...</option>
               </select>
-
             </div>
 
-
             <div class="form-group">
-
               <label>Bulan</label>
-
               <select id="sppBulan">
-                ${bulanOptions}
+                ${SPP_BULAN.map(
+                  (bulan, i) => `
+                    <option value="${i + 1}" ${
+                      i + 1 === getNowWIB().getMonth() + 1
+                        ? "selected"
+                        : ""
+                    }>${bulan}</option>
+                  `
+                ).join("")}
               </select>
-
             </div>
 
-
             <div class="form-group">
-
               <label>Tahun</label>
-
               <select id="sppTahun">
                 ${tahunOptions}
               </select>
-
             </div>
 
-
             <div class="form-group">
-
               <label>Nominal (Rp)</label>
-
               <input
                 type="number"
                 id="sppNominal"
                 placeholder="Contoh: 150000"
+                min="0"
                 required
               >
-
             </div>
 
-
             <div class="form-group">
-
               <label>Status</label>
-
               <select id="sppStatus">
-
-                <option value="Belum Bayar">
-                  Belum Bayar
-                </option>
-
-                <option value="Lunas">
-                  Lunas
-                </option>
-
+                <option value="Belum Bayar">Belum Bayar</option>
+                <option value="Lunas">Lunas</option>
               </select>
-
             </div>
 
           </div>
 
-
-          <div
-            style="
-              display:flex;
-              gap:10px;
-              margin-top:20px;
-            "
-          >
-
+          <div style="display:flex;gap:10px;margin-top:20px;">
             <button
               type="submit"
               class="btn"
@@ -246,1103 +192,973 @@ function renderSpp() {
             >
               Batal
             </button>
-
           </div>
 
         </form>
-
       </div>
 
+      <!-- ====================================================
+           RINGKASAN
+           ==================================================== -->
 
-      <!-- ======================================================
-           DAFTAR SPP
-           ====================================================== -->
+      <div
+        id="sppAnnualSummary"
+        class="spp-annual-summary"
+      >
+        <div class="spp-summary-card">
+          <div class="spp-summary-value" id="sppSummarySiswa">0</div>
+          <div class="spp-summary-label">Siswa</div>
+        </div>
 
-      <div class="section-body">
+        <div class="spp-summary-card">
+          <div class="spp-summary-value spp-summary-good" id="sppSummaryLunas">0</div>
+          <div class="spp-summary-label">Lunas</div>
+        </div>
 
-        <table>
+        <div class="spp-summary-card">
+          <div class="spp-summary-value spp-summary-warn" id="sppSummaryPending">0</div>
+          <div class="spp-summary-label">Menunggu Verifikasi</div>
+        </div>
 
+        <div class="spp-summary-card">
+          <div class="spp-summary-value spp-summary-bad" id="sppSummaryBelum">0</div>
+          <div class="spp-summary-label">Belum Bayar</div>
+        </div>
+      </div>
+
+      <!-- ====================================================
+           MATRIX
+           ==================================================== -->
+
+      <div class="spp-annual-help">
+        <span>✓ Lunas</span>
+        <span>⏳ Menunggu Verifikasi</span>
+        <span>! Belum Bayar</span>
+        <span>— Belum ada tagihan</span>
+      </div>
+
+      <div class="spp-table-wrap">
+        <table class="spp-annual-table">
           <thead>
-
             <tr>
-              <th>Nama</th>
-              <th>Kelas</th>
-              <th class="num">Nominal</th>
-              <th>Status</th>
-              <th>Bukti</th>
-              <th>Aksi</th>
+              <th class="spp-sticky-col">Siswa</th>
+              <th class="spp-class-col">Kelas</th>
+              ${SPP_BULAN.map((b) => `<th>${b.substring(0, 3)}</th>`).join("")}
             </tr>
-
           </thead>
-
-          <tbody id="daftarSpp">
-
+          <tbody id="daftarSppAnnual">
             <tr>
-              <td
-                colspan="6"
-                style="text-align:center;"
-              >
+              <td colspan="14" class="empty">
                 Memuat data SPP...
               </td>
             </tr>
-
           </tbody>
-
         </table>
-
       </div>
+
+      <div
+        id="sppDetailModal"
+        class="spp-modal"
+        style="display:none;"
+      ></div>
 
     </div>
   `;
 }
 
-
 // ============================================================
-// FORM SPP
-// ============================================================
-
-function bukaFormSpp() {
-  const c =
-    document.getElementById(
-      "formSppContainer"
-    );
-
-  if (c) {
-    c.style.display = "block";
-  }
-
-  loadDaftarSiswaUntukFormSpp();
-}
-
-
-function tutupFormSpp() {
-  const c =
-    document.getElementById(
-      "formSppContainer"
-    );
-
-  const f =
-    document.getElementById(
-      "formSpp"
-    );
-
-  if (c) {
-    c.style.display = "none";
-  }
-
-  if (f) {
-    f.reset();
-  }
-}
-
-
-// ============================================================
-// LOAD SISWA UNTUK FORM SPP
+// LOAD SISWA UNTUK FORM & FILTER
 // ============================================================
 
-async function loadDaftarSiswaUntukFormSpp() {
-  const select =
-    document.getElementById(
-      "sppSiswaId"
-    );
+async function loadSiswaSppTahunan() {
+  if (!supabase) return;
 
-  if (!select || !supabase) return;
+  const { data, error } = await supabase
+    .from("siswa")
+    .select("id,nama,nis,kelas,tahun_ajaran")
+    .order("nama", { ascending: true });
 
-  try {
-    const {
-      data,
-      error,
-    } = await supabase
-      .from("siswa")
-      .select(
-        "id,nama,kelas"
-      )
-      .order(
-        "nama",
-        {
-          ascending: true,
-        }
-      );
+  if (error) throw error;
 
-    if (error) {
-      throw error;
-    }
+  sppTahunanSiswa = data || [];
 
-    if (
-      !data ||
-      data.length === 0
-    ) {
-      select.innerHTML = `
-        <option value="">
-          Belum ada siswa
-        </option>
-      `;
-      return;
-    }
-
-    select.innerHTML =
-      data
+  const selectForm = document.getElementById("sppSiswaId");
+  if (selectForm) {
+    selectForm.innerHTML =
+      `<option value="">Pilih siswa...</option>` +
+      sppTahunanSiswa
         .map(
           (s) =>
-            `
-            <option value="${s.id}">
-              ${s.nama} — ${s.kelas || "-"}
-            </option>
-            `
+            `<option value="${s.id}">${s.nama} — ${s.kelas || "-"}</option>`
         )
         .join("");
+  }
 
-  } catch (error) {
+  const selectKelas = document.getElementById("filterKelasSpp");
+  if (selectKelas) {
+    const kelas = [
+      ...new Set(
+        sppTahunanSiswa
+          .map((s) => (s.kelas || "").trim())
+          .filter(Boolean)
+      )
+    ].sort();
 
-    console.error(
-      "Error load siswa untuk SPP:",
-      error
-    );
-
-    select.innerHTML = `
-      <option value="">
-        Gagal memuat siswa
-      </option>
-    `;
+    selectKelas.innerHTML =
+      `<option value="">Semua Kelas</option>` +
+      kelas
+        .map((k) => `<option value="${k}">${k}</option>`)
+        .join("");
   }
 }
 
+async function loadAllSppForYear(tahun) {
+  const hasil = [];
+  let from = 0;
+  const size = 1000;
 
-// ============================================================
-// SIMPAN SPP
-// ============================================================
+  while (true) {
+    const { data, error } = await supabase
+      .from("spp")
+      .select(`
+        id,
+        siswa_id,
+        bulan,
+        tahun,
+        nominal,
+        status,
+        tanggal_bayar,
+        bukti_bayar_url,
+        catatan,
+        updated_at
+      `)
+      .eq("tahun", tahun)
+      .order("bulan", { ascending: true })
+      .order("updated_at", { ascending: false })
+      .range(from, from + size - 1);
 
-async function simpanSpp(event) {
-  event.preventDefault();
+    if (error) throw error;
 
-  if (!supabase) {
-    alert(
-      "Supabase belum terhubung."
-    );
-    return;
+    hasil.push(...(data || []));
+
+    if (!data || data.length < size) break;
+    from += size;
   }
 
-  const btn =
-    document.getElementById(
-      "btnSimpanSpp"
-    );
+  return hasil;
+}
 
-  const siswaId =
-    document.getElementById(
-      "sppSiswaId"
-    ).value;
+// ============================================================
+// FILTER
+// ============================================================
 
-  const bulan =
-    Number(
-      document.getElementById(
-        "sppBulan"
-      ).value
-    );
+function filterSppTahunanData() {
+  const kelas =
+    document.getElementById("filterKelasSpp")?.value || "";
 
-  const tahun =
-    Number(
-      document.getElementById(
-        "sppTahun"
-      ).value
-    );
-
-  const nominal =
-    Number(
-      document.getElementById(
-        "sppNominal"
-      ).value
-    );
+  const cari =
+    (
+      document.getElementById("filterCariSpp")?.value || ""
+    )
+      .toLowerCase()
+      .trim();
 
   const status =
-    document.getElementById(
-      "sppStatus"
-    ).value;
+    document.getElementById("filterStatusSpp")?.value || "";
 
-  if (
-    !siswaId ||
-    !nominal
-  ) {
-    alert(
-      "Siswa dan nominal wajib diisi."
+  const siswaMap = new Map(
+    sppTahunanSiswa.map((s) => [String(s.id), s])
+  );
+
+  let siswa = sppTahunanSiswa.slice();
+
+  if (kelas) {
+    siswa = siswa.filter(
+      (s) => (s.kelas || "") === kelas
     );
-    return;
   }
 
-  btn.disabled = true;
-  btn.textContent =
-    "Menyimpan...";
+  if (cari) {
+    siswa = siswa.filter((s) => {
+      const haystack = [
+        s.nama,
+        s.nis,
+        s.kelas,
+        s.tahun_ajaran
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
-  try {
+      return haystack.includes(cari);
+    });
+  }
 
-    const dataSpp = {
-      siswa_id:
-        siswaId,
+  const bySiswa = new Map();
 
-      bulan,
+  sppTahunanData.forEach((item) => {
+    const siswaRef = siswaMap.get(String(item.siswa_id));
+    if (!siswaRef) return;
 
-      tahun,
+    if (kelas && siswaRef.kelas !== kelas) return;
 
-      nominal,
+    const cariMatch = !cari || [
+      siswaRef.nama,
+      siswaRef.nis,
+      siswaRef.kelas,
+      siswaRef.tahun_ajaran
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(cari);
 
-      status,
+    if (!cariMatch) return;
 
-      tanggal_bayar:
-        status === "Lunas"
-          ? getTodayWIBString()
-          : null,
-
-      dicatat_oleh:
-        currentUser
-          ? currentUser.id
-          : null,
-    };
-
-    const {
-      error,
-    } =
-      await supabase
-        .from("spp")
-        .insert(dataSpp)
-        .select();
-
-    if (error) {
-      throw error;
+    if (!bySiswa.has(String(item.siswa_id))) {
+      bySiswa.set(String(item.siswa_id), new Map());
     }
 
-    alert(
-      "Tagihan SPP berhasil ditambahkan!"
-    );
+    const bulanMap = bySiswa.get(String(item.siswa_id));
 
-    tutupFormSpp();
+    // Karena unique index siswa + bulan + tahun sudah aktif,
+    // satu bulan hanya boleh mempunyai satu record.
+    if (!bulanMap.has(Number(item.bulan))) {
+      bulanMap.set(Number(item.bulan), item);
+    }
+  });
 
-    await loadSpp();
+  // Untuk filter status, hanya tampilkan siswa yang mempunyai
+  // minimal satu bulan dengan status tersebut.
+  if (status) {
+    siswa = siswa.filter((s) => {
+      const bulanMap = bySiswa.get(String(s.id));
+      if (!bulanMap) return false;
 
-  } catch (error) {
-
-    console.error(
-      "Error tambah SPP:",
-      error
-    );
-
-    alert(
-      "Gagal menyimpan tagihan:\n\n" +
-        error.message
-    );
-
-  } finally {
-
-    btn.disabled = false;
-    btn.textContent =
-      "Simpan Tagihan";
+      return [...bulanMap.values()].some(
+        (item) => item.status === status
+      );
+    });
   }
+
+  return {
+    siswa,
+    bySiswa,
+    siswaMap
+  };
 }
 
-
 // ============================================================
-// BUAT TAGIHAN BULANAN
+// RENDER MATRIX
 // ============================================================
 
-async function buatTagihanBulanan() {
+function renderSppTahunanTable() {
+  const tbody = document.getElementById("daftarSppAnnual");
+  if (!tbody) return;
 
-  if (!supabase) {
-    return alert(
-      "Supabase belum terhubung."
-    );
-  }
+  const { siswa, bySiswa } =
+    filterSppTahunanData();
 
-  const bulan =
-    Number(
-      document.getElementById(
-        "filterBulanSpp"
-      )?.value
-    );
-
-  const tahun =
-    Number(
-      document.getElementById(
-        "filterTahunSpp"
-      )?.value
-    );
-
-  const inputNominal =
-    prompt(
-      `Nominal SPP untuk ${namaBulan(
-        bulan
-      )} ${tahun}:`,
-      "150000"
-    );
-
-  if (
-    inputNominal === null
-  ) {
+  if (siswa.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="14" class="empty">
+          Tidak ada data siswa yang sesuai.
+        </td>
+      </tr>
+    `;
+    updateSppSummary([]);
     return;
   }
 
-  const nominal =
-    Number(
-      String(
-        inputNominal
-      ).replace(
-        /[^0-9]/g,
-        ""
-      )
-    );
+  tbody.innerHTML = siswa
+    .map((siswaItem) => {
+      const bulanMap =
+        bySiswa.get(String(siswaItem.id)) ||
+        new Map();
 
-  if (
-    !nominal ||
-    nominal <= 0
-  ) {
-    alert(
-      "Nominal SPP tidak valid."
-    );
-    return;
-  }
+      const cells = SPP_BULAN.map((_, index) => {
+        const bulan = index + 1;
+        const spp = bulanMap.get(bulan);
 
-  if (
-    !confirm(
-      `Buat tagihan SPP ${namaBulan(
-        bulan
-      )} ${tahun} sebesar ${formatRupiah(
-        nominal
-      )} untuk semua siswa yang belum memiliki tagihan pada periode tersebut?`
-    )
-  ) {
-    return;
-  }
+        if (!spp) {
+          return `
+            <td class="spp-cell-empty">
+              <span>—</span>
+            </td>
+          `;
+        }
 
-  try {
+        const status = spp.status || "Belum Bayar";
+        const cls = sppStatusClass(status);
+        const icon = sppStatusIcon(status);
 
-    const {
-      data: siswa,
-      error: siswaError,
-    } =
-      await supabase
-        .from("siswa")
-        .select(
-          "id,nama,kelas"
-        )
-        .order(
-          "nama",
-          {
-            ascending: true,
-          }
-        );
+        return `
+          <td class="spp-cell-wrap">
+            <button
+              type="button"
+              class="spp-cell ${cls}"
+              title="${namaBulan(bulan)} ${spp.tahun} · ${formatRupiah(spp.nominal)} · ${status}"
+              onclick="window.__app.bukaDetailSpp('${spp.id}')"
+            >
+              ${icon}
+            </button>
+          </td>
+        `;
+      }).join("");
 
-    if (siswaError) {
-      throw siswaError;
-    }
+      return `
+        <tr>
+          <td class="spp-sticky-col">
+            <div class="spp-student-name">
+              ${siswaItem.nama || "-"}
+            </div>
+            <div class="spp-student-meta">
+              ${siswaItem.nis || "Tanpa NIS"}
+            </div>
+          </td>
 
-    const {
-      data: existing,
-      error: existingError,
-    } =
-      await supabase
-        .from("spp")
-        .select(
-          "siswa_id"
-        )
-        .eq(
-          "bulan",
-          bulan
-        )
-        .eq(
-          "tahun",
-          tahun
-        );
+          <td class="spp-class-col">
+            ${siswaItem.kelas || "-"}
+          </td>
 
-    if (existingError) {
-      throw existingError;
-    }
+          ${cells}
+        </tr>
+      `;
+    })
+    .join("");
 
-    const sudahAda =
-      new Set(
-        (
-          existing ||
-          []
-        ).map(
-          (x) =>
-            x.siswa_id
-        )
-      );
-
-    const belumAda =
-      (
-        siswa || []
-      ).filter(
-        (x) =>
-          !sudahAda.has(
-            x.id
-          )
-      );
-
-    if (
-      belumAda.length === 0
-    ) {
-      alert(
-        `Semua siswa sudah memiliki tagihan SPP ${namaBulan(
-          bulan
-        )} ${tahun}.`
-      );
-      return;
-    }
-
-    const payload =
-      belumAda.map(
-        (x) => ({
-          siswa_id:
-            x.id,
-
-          bulan,
-
-          tahun,
-
-          nominal,
-
-          status:
-            "Belum Bayar",
-
-          tanggal_bayar:
-            null,
-
-          dicatat_oleh:
-            currentUser
-              ? currentUser.id
-              : null,
-        })
-      );
-
-    const {
-      error: insertError,
-    } =
-      await supabase
-        .from("spp")
-        .insert(
-          payload
-        );
-
-    if (insertError) {
-      throw insertError;
-    }
-
-    alert(
-      `Berhasil membuat ${payload.length} tagihan SPP untuk ${namaBulan(
-        bulan
-      )} ${tahun}.`
-    );
-
-    await loadSpp();
-
-  } catch (error) {
-
-    console.error(
-      "Error buat tagihan bulanan:",
-      error
-    );
-
-    alert(
-      "Gagal membuat tagihan bulanan:\n\n" +
-        error.message
-    );
-  }
+  updateSppSummary(siswa);
 }
 
+function updateSppSummary(siswaTampil) {
+  const siswaIds = new Set(
+    (siswaTampil || []).map((s) => String(s.id))
+  );
+
+  let lunas = 0;
+  let pending = 0;
+  let belum = 0;
+
+  sppTahunanData.forEach((item) => {
+    if (!siswaIds.has(String(item.siswa_id))) return;
+
+    if (item.status === "Lunas") lunas++;
+    else if (item.status === "Menunggu Verifikasi") pending++;
+    else if (item.status === "Belum Bayar") belum++;
+  });
+
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+
+  setText("sppSummarySiswa", siswaIds.size);
+  setText("sppSummaryLunas", lunas);
+  setText("sppSummaryPending", pending);
+  setText("sppSummaryBelum", belum);
+}
 
 // ============================================================
-// LOAD SPP ADMIN
+// LOAD SPP
 // ============================================================
 
 async function loadSpp() {
+  const tbody = document.getElementById("daftarSppAnnual");
+  if (!tbody || !supabase) return;
 
-  const tbody =
-    document.getElementById(
-      "daftarSpp"
-    );
+  const tahun = Number(
+    document.getElementById("filterTahunSpp")?.value ||
+    getNowWIB().getFullYear()
+  );
 
-  if (
-    !tbody ||
-    !supabase
-  ) {
-    return;
-  }
+  sppTahunanTahun = tahun;
 
   tbody.innerHTML = `
     <tr>
-      <td
-        colspan="6"
-        style="text-align:center;"
-      >
-        Memuat data SPP...
+      <td colspan="14" class="empty">
+        Memuat data SPP ${tahun}...
       </td>
     </tr>
   `;
 
   try {
-
-    const bulan =
-      Number(
-        document.getElementById(
-          "filterBulanSpp"
-        )?.value
-      );
-
-    const tahun =
-      Number(
-        document.getElementById(
-          "filterTahunSpp"
-        )?.value
-      );
-
-    const status =
-      document.getElementById(
-        "filterStatusSpp"
-      )?.value;
-
-    let query =
-      supabase
-        .from("spp")
-        .select(
-          `
-          id,
-          nominal,
-          status,
-          tanggal_bayar,
-          bukti_bayar_url,
-          catatan,
-          siswa:siswa_id (
-            nama,
-            kelas
-          )
-          `
-        )
-        .eq(
-          "bulan",
-          bulan
-        )
-        .eq(
-          "tahun",
-          tahun
-        );
-
-    if (status) {
-      query =
-        query.eq(
-          "status",
-          status
-        );
-    }
-
-    const {
-      data,
-      error,
-    } =
-      await query.order(
-        "created_at",
-        {
-          ascending: false,
-        }
-      );
-
-    if (error) {
-      throw error;
-    }
-
-    if (
-      !data ||
-      data.length === 0
-    ) {
-
-      tbody.innerHTML = `
-        <tr>
-          <td
-            colspan="6"
-            style="text-align:center;"
-          >
-            Belum ada data SPP
-            untuk periode ini.
-          </td>
-        </tr>
-      `;
-
-      return;
-    }
-
-
-    tbody.innerHTML =
-      data
-        .map(
-          (s) => {
-
-            const isLunas =
-              s.status ===
-              "Lunas";
-
-            const isPending =
-              s.status ===
-              "Menunggu Verifikasi";
-
-            const isBelum =
-              s.status ===
-              "Belum Bayar";
-
-
-            let badgeClass =
-              "badge-muted";
-
-            if (isLunas) {
-              badgeClass =
-                "badge-good";
-            } else if (
-              isPending
-            ) {
-              badgeClass =
-                "badge-warn";
-            } else if (
-              isBelum
-            ) {
-              badgeClass =
-                "badge-bad";
-            }
-
-
-            // --------------------------------------------------
-            // KOLOM BUKTI
-            // --------------------------------------------------
-
-            let buktiHtml =
-              `<span style="color:var(--ink-soft);">—</span>`;
-
-            if (
-              s.bukti_bayar_url
-            ) {
-
-              buktiHtml = `
-                <a
-                  href="${s.bukti_bayar_url}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="btn ghost small"
-                >
-                  🔎 Lihat Bukti
-                </a>
-              `;
-            }
-
-
-            // --------------------------------------------------
-            // KOLOM AKSI
-            // --------------------------------------------------
-
-            let aksiHtml = "";
-
-
-            // PEMBAYARAN MENUNGGU VERIFIKASI
-            if (
-              isPending
-            ) {
-
-              aksiHtml = `
-                <div
-                  style="
-                    display:flex;
-                    gap:6px;
-                    flex-wrap:wrap;
-                  "
-                >
-
-                  <button
-                    class="btn small"
-                    onclick="window.__app.terimaPembayaranSpp('${s.id}')"
-                  >
-                    ✓ Terima
-                  </button>
-
-                  <button
-                    class="btn ghost small"
-                    onclick="window.__app.tolakPembayaranSpp('${s.id}')"
-                  >
-                    ✕ Tolak
-                  </button>
-
-                </div>
-              `;
-
-            }
-
-            // SUDAH LUNAS
-            else if (
-              isLunas
-            ) {
-
-              aksiHtml = `
-                <button
-                  class="btn ghost small"
-                  onclick="window.__app.hapusSpp('${s.id}')"
-                >
-                  Hapus
-                </button>
-              `;
-
-            }
-
-            // BELUM BAYAR
-            else {
-
-              aksiHtml = `
-                <div
-                  style="
-                    display:flex;
-                    gap:6px;
-                    flex-wrap:wrap;
-                  "
-                >
-
-                  <button
-                    class="btn small"
-                    onclick="window.__app.tandaiLunas('${s.id}')"
-                  >
-                    Tandai Lunas
-                  </button>
-
-                  <button
-                    class="btn ghost small"
-                    onclick="window.__app.hapusSpp('${s.id}')"
-                  >
-                    Hapus
-                  </button>
-
-                </div>
-              `;
-            }
-
-
-            return `
-              <tr data-spp-id="${s.id}">
-
-                <td>
-                  ${s.siswa?.nama || "-"}
-                </td>
-
-                <td>
-                  ${s.siswa?.kelas || "-"}
-                </td>
-
-                <td class="num">
-                  ${formatRupiah(
-                    s.nominal
-                  )}
-                </td>
-
-                <td>
-                  <span
-                    class="badge ${badgeClass}"
-                  >
-                    ${s.status}
-                  </span>
-                </td>
-
-                <td>
-                  ${buktiHtml}
-                </td>
-
-                <td>
-                  ${aksiHtml}
-                </td>
-
-              </tr>
-            `;
-          }
-        )
-        .join("");
-
+    await loadSiswaSppTahunan();
+    sppTahunanData = await loadAllSppForYear(tahun);
+    renderSppTahunanTable();
   } catch (error) {
-
-    console.error(
-      "Error load SPP:",
-      error
-    );
+    console.error("Error load SPP tahunan:", error);
 
     tbody.innerHTML = `
       <tr>
         <td
-          colspan="6"
-          style="
-            text-align:center;
-            color:#E11D48;
-          "
+          colspan="14"
+          class="empty"
+          style="color:var(--bad);"
         >
-          Gagal memuat data SPP.
+          Gagal memuat data SPP: ${error.message || "Terjadi kesalahan."}
         </td>
       </tr>
     `;
   }
 }
 
+function applySppTahunanFilter() {
+  renderSppTahunanTable();
+}
 
 // ============================================================
-// TERIMA PEMBAYARAN
+// FORM TAMBAH SPP
 // ============================================================
 
-async function terimaPembayaranSpp(
-  id
-) {
+function bukaFormSpp() {
+  const el = document.getElementById("formSppContainer");
+  if (el) el.style.display = "block";
+
+  loadSiswaSppTahunan().catch((error) => {
+    console.error(error);
+  });
+}
+
+function tutupFormSpp() {
+  const container = document.getElementById("formSppContainer");
+  const form = document.getElementById("formSpp");
+
+  if (container) container.style.display = "none";
+  if (form) form.reset();
+}
+
+async function simpanSpp(event) {
+  event.preventDefault();
 
   if (!supabase) {
-    alert(
-      "Supabase belum terhubung."
-    );
+    alert("Supabase belum terhubung.");
     return;
   }
 
-  const yakin =
-    confirm(
-      "Terima pembayaran ini?\n\n" +
-      "Status SPP akan berubah menjadi Lunas."
-    );
+  const btn = document.getElementById("btnSimpanSpp");
 
-  if (!yakin) {
+  const siswaId = document.getElementById("sppSiswaId")?.value;
+  const bulan = Number(document.getElementById("sppBulan")?.value);
+  const tahun = Number(document.getElementById("sppTahun")?.value);
+  const nominal = Number(document.getElementById("sppNominal")?.value);
+  const status = document.getElementById("sppStatus")?.value;
+
+  if (!siswaId || !nominal || nominal <= 0) {
+    alert("Siswa dan nominal wajib diisi dengan benar.");
     return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Menyimpan...";
   }
 
   try {
+    const { error } = await supabase
+      .from("spp")
+      .insert({
+        siswa_id: siswaId,
+        bulan,
+        tahun,
+        nominal,
+        status,
+        tanggal_bayar:
+          status === "Lunas" ? getTodayWIBString() : null,
+        dicatat_oleh: currentUser?.id || null
+      });
 
-    const {
-      error,
-    } =
-      await supabase
-        .from("spp")
-        .update({
-          status:
-            "Lunas",
+    if (error) throw error;
 
-          tanggal_bayar:
-            getTodayWIBString(),
-
-          dicatat_oleh:
-            currentUser
-              ? currentUser.id
-              : null,
-        })
-        .eq(
-          "id",
-          id
-        );
-
-    if (error) {
-      throw error;
-    }
-
-    alert(
-      "✅ Pembayaran berhasil diverifikasi.\n\nStatus SPP sekarang: Lunas."
-    );
-
+    alert("Tagihan SPP berhasil ditambahkan!");
+    tutupFormSpp();
     await loadSpp();
-
   } catch (error) {
+    console.error("Error simpan SPP:", error);
 
-    console.error(
-      "Error terima pembayaran:",
-      error
-    );
-
-    alert(
-      "Gagal memverifikasi pembayaran:\n\n" +
-        error.message
-    );
+    if (error?.code === "23505") {
+      alert(
+        "Tagihan untuk siswa, bulan, dan tahun tersebut sudah ada."
+      );
+    } else {
+      alert(
+        "Gagal menyimpan tagihan SPP:\n\n" +
+          (error?.message || "Terjadi kesalahan.")
+      );
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Simpan Tagihan";
+    }
   }
 }
 
-
 // ============================================================
-// TOLAK PEMBAYARAN
+// BUAT TAGIHAN BULANAN
 // ============================================================
 
-async function tolakPembayaranSpp(
-  id
-) {
-
+async function buatTagihanBulanan() {
   if (!supabase) {
-    alert(
-      "Supabase belum terhubung."
-    );
+    alert("Supabase belum terhubung.");
     return;
   }
 
-  const yakin =
-    confirm(
-      "Tolak bukti pembayaran ini?\n\n" +
-      "Status akan dikembalikan menjadi Belum Bayar agar orang tua dapat mengirim ulang bukti."
-    );
+  const bulan = getNowWIB().getMonth() + 1;
+  const tahun = Number(
+    document.getElementById("filterTahunSpp")?.value ||
+      getNowWIB().getFullYear()
+  );
 
-  if (!yakin) {
+  const inputBulan = prompt(
+    `Bulan tagihan (1-12) untuk tahun ${tahun}:`,
+    String(bulan)
+  );
+
+  if (inputBulan === null) return;
+
+  const bulanPilihan = Number(inputBulan);
+
+  if (
+    !Number.isInteger(bulanPilihan) ||
+    bulanPilihan < 1 ||
+    bulanPilihan > 12
+  ) {
+    alert("Bulan tidak valid.");
     return;
   }
 
-  try {
+  const inputNominal = prompt(
+    `Nominal SPP ${namaBulan(bulanPilihan)} ${tahun}:`,
+    "150000"
+  );
 
-    const {
-      error,
-    } =
-      await supabase
-        .from("spp")
-        .update({
-          status:
-            "Belum Bayar",
+  if (inputNominal === null) return;
 
-          bukti_bayar_url:
-            null,
+  const nominal = Number(
+    String(inputNominal).replace(/[^0-9]/g, "")
+  );
 
-          tanggal_bayar:
-            null,
-
-          catatan:
-            "Bukti pembayaran ditolak oleh admin.",
-        })
-        .eq(
-          "id",
-          id
-        );
-
-    if (error) {
-      throw error;
-    }
-
-    alert(
-      "Bukti pembayaran ditolak.\n\n" +
-      "Orang tua dapat mengirim ulang bukti pembayaran."
-    );
-
-    await loadSpp();
-
-  } catch (error) {
-
-    console.error(
-      "Error tolak pembayaran:",
-      error
-    );
-
-    alert(
-      "Gagal menolak pembayaran:\n\n" +
-        error.message
-    );
-  }
-}
-
-
-// ============================================================
-// TANDAI LUNAS MANUAL
-// ============================================================
-
-async function tandaiLunas(
-  id
-) {
-
-  if (!supabase) {
-    return;
-  }
-
-  const yakin =
-    confirm(
-      "Tandai tagihan ini sebagai Lunas?"
-    );
-
-  if (!yakin) {
-    return;
-  }
-
-  try {
-
-    const {
-      error,
-    } =
-      await supabase
-        .from("spp")
-        .update({
-          status:
-            "Lunas",
-
-          tanggal_bayar:
-            getTodayWIBString(),
-
-          dicatat_oleh:
-            currentUser
-              ? currentUser.id
-              : null,
-        })
-        .eq(
-          "id",
-          id
-        );
-
-    if (error) {
-      throw error;
-    }
-
-    await loadSpp();
-
-  } catch (error) {
-
-    console.error(
-      "Error tandai lunas:",
-      error
-    );
-
-    alert(
-      "Gagal menandai lunas:\n\n" +
-        error.message
-    );
-  }
-}
-
-
-// ============================================================
-// HAPUS SPP
-// ============================================================
-
-async function hapusSpp(
-  id
-) {
-
-  if (!supabase) {
+  if (!nominal || nominal <= 0) {
+    alert("Nominal tidak valid.");
     return;
   }
 
   if (
     !confirm(
-      "Yakin ingin menghapus tagihan SPP ini?"
+      `Buat tagihan ${namaBulan(bulanPilihan)} ${tahun} ` +
+        `sebesar ${formatRupiah(nominal)} untuk semua siswa ` +
+        `yang belum memiliki tagihan pada periode tersebut?`
     )
   ) {
     return;
   }
 
   try {
+    await loadSiswaSppTahunan();
 
-    const {
-      error,
-    } =
-      await supabase
-        .from("spp")
-        .delete()
-        .eq(
-          "id",
-          id
-        );
+    const existing = await loadSppForMonth(
+      bulanPilihan,
+      tahun
+    );
 
-    if (error) {
-      throw error;
+    const sudahAda = new Set(
+      existing.map((x) => String(x.siswa_id))
+    );
+
+    const belumAda = sppTahunanSiswa.filter(
+      (s) => !sudahAda.has(String(s.id))
+    );
+
+    if (belumAda.length === 0) {
+      alert(
+        `Semua siswa sudah memiliki tagihan ${namaBulan(
+          bulanPilihan
+        )} ${tahun}.`
+      );
+      return;
     }
 
-    await loadSpp();
+    const payload = belumAda.map((s) => ({
+      siswa_id: s.id,
+      bulan: bulanPilihan,
+      tahun,
+      nominal,
+      status: "Belum Bayar",
+      tanggal_bayar: null,
+      dicatat_oleh: currentUser?.id || null
+    }));
 
-  } catch (error) {
+    const { error } = await supabase
+      .from("spp")
+      .insert(payload);
 
-    console.error(
-      "Error hapus SPP:",
-      error
-    );
+    if (error) throw error;
 
     alert(
-      "Gagal menghapus tagihan:\n\n" +
-        error.message
+      `Berhasil membuat ${payload.length} tagihan SPP ${namaBulan(
+        bulanPilihan
+      )} ${tahun}.`
     );
+
+    await loadSpp();
+  } catch (error) {
+    console.error("Error buat tagihan bulanan:", error);
+    alert(
+      "Gagal membuat tagihan bulanan:\n\n" +
+        (error?.message || "Terjadi kesalahan.")
+    );
+  }
+}
+
+async function loadSppForMonth(bulan, tahun) {
+  const hasil = [];
+  let from = 0;
+  const size = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("spp")
+      .select("id,siswa_id,bulan,tahun,status")
+      .eq("bulan", bulan)
+      .eq("tahun", tahun)
+      .range(from, from + size - 1);
+
+    if (error) throw error;
+
+    hasil.push(...(data || []));
+
+    if (!data || data.length < size) break;
+    from += size;
+  }
+
+  return hasil;
+}
+
+// ============================================================
+// DETAIL SPP
+// ============================================================
+
+async function bukaDetailSpp(id) {
+  if (!supabase) return;
+
+  const { data, error } = await supabase
+    .from("spp")
+    .select(`
+      id,
+      siswa_id,
+      bulan,
+      tahun,
+      nominal,
+      status,
+      tanggal_bayar,
+      bukti_bayar_url,
+      catatan,
+      siswa:siswa_id(
+        nama,
+        nis,
+        kelas
+      )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    alert("Gagal membuka detail SPP:\n\n" + error.message);
+    return;
+  }
+
+  const modal = document.getElementById("sppDetailModal");
+  if (!modal) return;
+
+  let aksi = "";
+
+  if (data.status === "Menunggu Verifikasi") {
+    aksi = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+        <button
+          class="btn"
+          onclick="window.__app.terimaPembayaranSpp('${data.id}');window.__app.tutupDetailSpp();"
+        >✓ Terima Pembayaran</button>
+
+        <button
+          class="btn ghost"
+          onclick="window.__app.tolakPembayaranSpp('${data.id}');window.__app.tutupDetailSpp();"
+        >✕ Tolak</button>
+      </div>
+    `;
+  } else if (data.status === "Belum Bayar") {
+    aksi = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+        <button
+          class="btn"
+          onclick="window.__app.tandaiLunas('${data.id}');window.__app.tutupDetailSpp();"
+        >✓ Tandai Lunas</button>
+
+        <button
+          class="btn ghost"
+          onclick="window.__app.hapusSpp('${data.id}');window.__app.tutupDetailSpp();"
+        >Hapus</button>
+      </div>
+    `;
+  } else {
+    aksi = `
+      <div style="margin-top:16px;">
+        <button
+          class="btn ghost"
+          onclick="window.__app.hapusSpp('${data.id}');window.__app.tutupDetailSpp();"
+        >Hapus Tagihan</button>
+      </div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div class="spp-modal-card">
+
+      <div class="spp-modal-head">
+        <div>
+          <div style="font-size:12px;color:var(--ink-soft);">
+            SPP ${namaBulan(data.bulan)} ${data.tahun}
+          </div>
+          <h3 style="margin:3px 0 0;">
+            ${data.siswa?.nama || "Siswa"}
+          </h3>
+        </div>
+
+        <button
+          type="button"
+          class="spp-modal-close"
+          onclick="window.__app.tutupDetailSpp()"
+        >×</button>
+      </div>
+
+      <div class="spp-modal-grid">
+        <div>
+          <div class="spp-detail-label">Kelas</div>
+          <div>${data.siswa?.kelas || "-"}</div>
+        </div>
+
+        <div>
+          <div class="spp-detail-label">NIS</div>
+          <div>${data.siswa?.nis || "-"}</div>
+        </div>
+
+        <div>
+          <div class="spp-detail-label">Nominal</div>
+          <div>${formatRupiah(data.nominal)}</div>
+        </div>
+
+        <div>
+          <div class="spp-detail-label">Status</div>
+          <div>
+            <span class="badge ${
+              data.status === "Lunas"
+                ? "badge-good"
+                : data.status === "Menunggu Verifikasi"
+                  ? "badge-warn"
+                  : "badge-bad"
+            }">
+              ${data.status}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div class="spp-detail-label">Tanggal Bayar</div>
+          <div>${data.tanggal_bayar || "-"}</div>
+        </div>
+      </div>
+
+      ${
+        data.bukti_bayar_url
+          ? `
+            <div style="margin-top:18px;">
+              <div class="spp-detail-label">Bukti Pembayaran</div>
+              <a
+                href="${data.bukti_bayar_url}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn secondary small"
+                style="margin-top:6px;display:inline-block;"
+              >
+                🔎 Buka Bukti
+              </a>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        data.catatan
+          ? `
+            <div style="margin-top:16px;">
+              <div class="spp-detail-label">Catatan</div>
+              <div style="margin-top:4px;line-height:1.5;">
+                ${data.catatan}
+              </div>
+            </div>
+          `
+          : ""
+      }
+
+      ${aksi}
+
+    </div>
+  `;
+
+  modal.style.display = "flex";
+}
+
+function tutupDetailSpp() {
+  const modal = document.getElementById("sppDetailModal");
+  if (modal) modal.style.display = "none";
+}
+
+// ============================================================
+// TERIMA / TOLAK / MANUAL LUNAS
+// ============================================================
+
+async function terimaPembayaranSpp(id) {
+  if (!supabase) return;
+
+  if (!confirm("Terima pembayaran ini dan ubah status menjadi Lunas?")) {
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("spp")
+      .update({
+        status: "Lunas",
+        tanggal_bayar: getTodayWIBString(),
+        dicatat_oleh: currentUser?.id || null
+      })
+      .eq("id", id)
+      .eq("status", "Menunggu Verifikasi");
+
+    if (error) throw error;
+
+    alert("Pembayaran berhasil diverifikasi.");
+    await loadSpp();
+  } catch (error) {
+    console.error("Terima pembayaran:", error);
+    alert("Gagal memverifikasi pembayaran:\n\n" + error.message);
+  }
+}
+
+async function tolakPembayaranSpp(id) {
+  if (!supabase) return;
+
+  if (
+    !confirm(
+      "Tolak bukti pembayaran ini? Status akan kembali menjadi Belum Bayar."
+    )
+  ) {
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("spp")
+      .update({
+        status: "Belum Bayar",
+        bukti_bayar_url: null,
+        tanggal_bayar: null,
+        catatan: "Bukti pembayaran ditolak oleh admin."
+      })
+      .eq("id", id)
+      .eq("status", "Menunggu Verifikasi");
+
+    if (error) throw error;
+
+    alert("Bukti pembayaran ditolak.");
+    await loadSpp();
+  } catch (error) {
+    console.error("Tolak pembayaran:", error);
+    alert("Gagal menolak pembayaran:\n\n" + error.message);
+  }
+}
+
+async function tandaiLunas(id) {
+  if (!supabase) return;
+
+  if (!confirm("Tandai tagihan ini sebagai Lunas?")) return;
+
+  try {
+    const { error } = await supabase
+      .from("spp")
+      .update({
+        status: "Lunas",
+        tanggal_bayar: getTodayWIBString(),
+        dicatat_oleh: currentUser?.id || null
+      })
+      .eq("id", id)
+      .eq("status", "Belum Bayar");
+
+    if (error) throw error;
+
+    await loadSpp();
+  } catch (error) {
+    console.error("Tandai lunas:", error);
+    alert("Gagal menandai lunas:\n\n" + error.message);
+  }
+}
+
+async function hapusSpp(id) {
+  if (!supabase) return;
+
+  if (!confirm("Yakin ingin menghapus tagihan SPP ini?")) return;
+
+  try {
+    const { error } = await supabase
+      .from("spp")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    await loadSpp();
+  } catch (error) {
+    console.error("Hapus SPP:", error);
+    alert("Gagal menghapus tagihan:\n\n" + error.message);
+  }
+}
+
+// ============================================================
+// FOKUS DARI NOTIFIKASI
+// ============================================================
+
+function fokusSppTahunan(id, bulan, tahun) {
+  if (Number(tahun) !== Number(sppTahunanTahun)) {
+    const tahunEl = document.getElementById("filterTahunSpp");
+    if (tahunEl) tahunEl.value = String(tahun);
+    loadSpp().then(() => fokusSppTahunan(id, bulan, tahun));
+    return;
+  }
+
+  const rowButtons = document.querySelectorAll(
+    `.spp-cell[onclick*="${id}"]`
+  );
+
+  const target = rowButtons[0];
+
+  if (target) {
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "center"
+    });
+
+    target.classList.add("spp-cell-focus");
+
+    setTimeout(() => {
+      target.classList.remove("spp-cell-focus");
+    }, 2200);
+
+    setTimeout(() => {
+      bukaDetailSpp(id);
+    }, 250);
+  } else {
+    bukaDetailSpp(id);
   }
 }
