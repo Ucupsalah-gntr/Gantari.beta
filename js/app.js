@@ -32,15 +32,51 @@
 
             <main class="content">
               <header class="topbar">
-                <div>
-                  <h1 id="pageTitle">Dasbor</h1>
-                  <p id="pageSub">Ringkasan hari ini</p>
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;position:relative;">
-                  <button class="btn secondary small" onclick="window.__app.toggleNotifikasi()" id="btnNotifikasi">🔔 Notifikasi <span id="notifCount" class="badge badge-bad" style="margin-left:4px;display:none;">0</span></button>
-                  <div class="today-chip" id="todayChip"></div>
-                </div>
-              </header>
+
+  <div>
+    <h1 id="pageTitle">Dasbor</h1>
+    <p id="pageSub">Ringkasan hari ini</p>
+  </div>
+
+  <div
+    style="
+      display:flex;
+      align-items:center;
+      gap:10px;
+      position:relative;
+    "
+  >
+
+    <button
+      class="notif-button"
+      id="notifButton"
+      onclick="window.__app.toggleNotifikasi()"
+      type="button"
+    >
+      🔔
+      <span id="notifLabel">Notifikasi</span>
+      <span
+        id="notifCount"
+        class="notif-count"
+        style="display:none;"
+      >
+        0
+      </span>
+    </button>
+
+    <div
+      id="notifPanel"
+      class="notif-panel"
+    ></div>
+
+    <div
+      class="today-chip"
+      id="todayChip"
+    ></div>
+
+  </div>
+
+</header>
               <div class="notif-panel" id="notifPanel"></div>
               <section class="view" id="view"></section>
             </main>
