@@ -41,103 +41,86 @@ function downloadCsv(filename, rows) {
 
 
 // ============================================================
-// EXPORT SPP
+// EXPORT SPP TAHUNAN
 // ============================================================
-
 async function exportSppCsv() {
-  if (!supabase) {
-    return alert("Supabase belum terhubung.");
-  }
-
-  // Pastikan data tahun yang aktif sudah tersedia.
-  if (!Array.isArray(sppTahunanData) || !Array.isArray(sppTahunanSiswa)) {
-    if (typeof loadSpp === "function") {
-      await loadSpp();
-    }
-  }
+  if (!supabase) return alert("Supabase belum terhubung.");
 
   const tahun = Number(
     document.getElementById("filterTahunSpp")?.value ||
-      getNowWIB().getFullYear()
+      (typeof sppTahunanTahun !== "undefined" && sppTahunanTahun) ||
+      (typeof getNowWIB === "function" ? getNowWIB().getFullYear() : new Date().getFullYear())
   );
+  const kelas = document.getElementById("filterKelasSpp")?.value || "";
+  const cari = (document.getElementById("filterCariSpp")?.value || "").trim().toLowerCase();
+  const statusFilter = document.getElementById("filterStatusSpp")?.value || "";
 
-  const kelas =
-    document.getElementById("filterKelasSpp")?.value || "";
+  try {
+    let siswa = typeof sppTahunanSiswa !== "undefined" ? sppTahunanSiswa : [];
+    let data = typeof sppTahunanData !== "undefined" ? sppTahunanData : [];
 
-  const cari = (
-    document.getElementById("filterCariSpp")?.value || ""
-  )
-    .toLowerCase()
-    .trim();
-
-  const status =
-    document.getElementById("filterStatusSpp")?.value || "";
-
-  const siswa = (sppTahunanSiswa || []).filter((s) => {
-    if (kelas && (s.kelas || "") !== kelas) return false;
-
-    if (cari) {
-      const haystack = [
-        s.nama,
-        s.nis,
-        s.kelas,
-        s.tahun_ajaran
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      if (!haystack.includes(cari)) return false;
+    if (!siswa.length) {
+      const { data: siswaData, error: siswaError } = await supabase
+        .from("siswa")
+        .select("id,nama,nis,kelas")
+        .order("nama", { ascending: true });
+      if (siswaError) throw siswaError;
+      siswa = siswaData || [];
     }
 
-    if (status) {
-      const rowStatuses = (sppTahunanData || [])
-        .filter((x) => String(x.siswa_id) === String(s.id))
-        .map((x) => x.status);
-
-      if (!rowStatuses.includes(status)) return false;
+    if (!data.length || (typeof sppTahunanTahun !== "undefined" && Number(sppTahunanTahun) !== tahun)) {
+      const rows = [];
+      let from = 0;
+      const size = 1000;
+      while (true) {
+        const { data: batch, error } = await supabase
+          .from("spp")
+          .select("id,siswa_id,bulan,tahun,nominal,status,tanggal_bayar")
+          .eq("tahun", tahun)
+          .range(from, from + size - 1);
+        if (error) throw error;
+        rows.push(...(batch || []));
+        if (!batch || batch.length < size) break;
+        from += size;
+      }
+      data = rows;
     }
 
-    return true;
-  });
+    const visible = siswa.filter((s) => {
+      const hay = `${s.nama || ""} ${s.nis || ""}`.toLowerCase();
+      if (kelas && s.kelas !== kelas) return false;
+      if (cari && !hay.includes(cari)) return false;
+      if (statusFilter) {
+        const rowHasStatus = data.some((x) => String(x.siswa_id) === String(s.id) && x.status === statusFilter);
+        if (!rowHasStatus) return false;
+      }
+      return true;
+    });
 
-  const sppMap = new Map();
+    const bulanNama = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const lookup = new Map(data.map((x) => [`${x.siswa_id}-${x.bulan}`, x]));
+    const rows = [["Nama", "NIS", "Kelas", ...bulanNama, "Total Lunas", "Total Belum Lunas"]];
 
-  (sppTahunanData || []).forEach((item) => {
-    const key = `${item.siswa_id}_${Number(item.bulan)}`;
-    sppMap.set(key, item);
-  });
+    visible.forEach((s) => {
+      let lunas = 0;
+      let belum = 0;
+      const bulanCells = bulanNama.map((_, i) => {
+        const rec = lookup.get(`${s.id}-${i + 1}`);
+        if (!rec) return "";
+        if (rec.status === "Lunas") lunas++; else belum++;
+        return rec.status || "";
+      });
+      rows.push([s.nama || "", s.nis || "", s.kelas || "", ...bulanCells, lunas, belum]);
+    });
 
-  const rows = [
-    [
-      "Nama Siswa",
-      "NIS",
-      "Kelas",
-      ...SPP_BULAN.map((b) => b),
-    ]
-  ];
-
-  siswa.forEach((s) => {
-    rows.push([
-      s.nama || "",
-      s.nis || "",
-      s.kelas || "",
-      ...SPP_BULAN.map((_, index) => {
-        const item = sppMap.get(
-          `${s.id}_${index + 1}`
-        );
-
-        if (!item) return "";
-
-        return item.status || "";
-      })
-    ]);
-  });
-
-  downloadCsv(
-    `gantariku-monitoring-spp-${tahun}.csv`,
-    rows
-  );
+    downloadCsv(`gantariku-spp-tahunan-${tahun}.csv`, rows);
+  } catch (error) {
+    console.error("Export SPP tahunan:", error);
+    alert("Gagal export SPP tahunan:\n\n" + (error?.message || "Terjadi kesalahan."));
+  }
 }
 
 
@@ -373,133 +356,371 @@ function toggleNotifikasi() {
 // ------------------------------------------------------------
 
 async function loadNotifikasi() {
-  const panel = document.getElementById("notifPanel");
-  const count = document.getElementById("notifCount");
-  if (!supabase || currentUserRole !== "admin" || !panel || !count) return;
+
+  const panel =
+    document.getElementById("notifPanel");
+
+  const count =
+    document.getElementById("notifCount");
+
+  if (
+    !supabase ||
+    currentUserRole !== "admin" ||
+    !panel ||
+    !count
+  ) {
+    return;
+  }
 
   const pembayaran = [];
   const perhatian = [];
 
   try {
-    const now = getNowWIB();
-    const bulan = now.getMonth() + 1;
-    const tahun = now.getFullYear();
-    const tanggal = getTodayWIBString();
 
-    const { data: pending, error: pendingError } = await supabase
+    const now =
+      getNowWIB();
+
+    const bulan =
+      now.getMonth() + 1;
+
+    const tahun =
+      now.getFullYear();
+
+    const tanggal =
+      getTodayWIBString();
+
+
+    // ========================================================
+    // A. PEMBAYARAN MENUNGGU VERIFIKASI
+    //    Tidak dibatasi bulan berjalan.
+    // ========================================================
+
+    const {
+      data: pending,
+      error: pendingError
+    } = await supabase
       .from("spp")
-      .select(`id,bulan,tahun,nominal,updated_at,siswa:siswa_id(nama,kelas)`)
-      .eq("status", "Menunggu Verifikasi")
-      .order("updated_at", { ascending: false })
-      .limit(10);
-    if (pendingError) throw pendingError;
+      .select(`
+        id,
+        bulan,
+        tahun,
+        nominal,
+        updated_at,
+        siswa:siswa_id (
+          nama,
+          kelas
+        )
+      `)
+      .eq(
+        "status",
+        "Menunggu Verifikasi"
+      )
+      .order(
+        "updated_at",
+        {
+          ascending: false
+        }
+      );
 
-    (pending || []).forEach((spp) => pembayaran.push({
-      id: spp.id,
-      bulan: Number(spp.bulan),
-      tahun: Number(spp.tahun),
-      nama: spp.siswa?.nama || "Siswa",
-      kelas: spp.siswa?.kelas || "-",
-      nominal: spp.nominal || 0,
-      waktu: spp.updated_at
-    }));
+    if (pendingError) {
+      throw pendingError;
+    }
 
-    const { data: sppBelumBayar, error: sppError } = await supabase
+    (pending || [])
+      .slice(0, 10)
+      .forEach((spp) => {
+        pembayaran.push({
+          id: spp.id,
+          bulan: Number(spp.bulan),
+          tahun: Number(spp.tahun),
+          nama: spp.siswa?.nama || "Siswa",
+          kelas: spp.siswa?.kelas || "-",
+          nominal: spp.nominal || 0,
+          waktu: spp.updated_at
+        });
+      });
+
+
+    // ========================================================
+    // B. SPP BULAN BERJALAN
+    // ========================================================
+
+    const {
+      data: sppBelumBayar,
+      error: sppError
+    } = await supabase
       .from("spp")
       .select("id")
       .eq("bulan", bulan)
       .eq("tahun", tahun)
       .eq("status", "Belum Bayar");
-    if (sppError) throw sppError;
-    if ((sppBelumBayar || []).length > 0) {
-      perhatian.push(`💳 ${sppBelumBayar.length} tagihan SPP ${namaBulan(bulan)} ${tahun} belum lunas.`);
+
+    if (sppError) {
+      throw sppError;
     }
 
-    const { data: absensiGuru, error: agError } = await supabase
+    if ((sppBelumBayar || []).length > 0) {
+      perhatian.push(
+        `💳 ${sppBelumBayar.length} tagihan SPP ${namaBulan(bulan)} ${tahun} belum lunas.`
+      );
+    }
+
+
+    // ========================================================
+    // C. ABSENSI GURU
+    // ========================================================
+
+    const {
+      data: absensiGuru,
+      error: agError
+    } = await supabase
       .from("absensi_guru")
       .select("guru_id")
       .eq("tanggal", tanggal);
-    if (agError) throw agError;
 
-    const { count: jumlahGuru, error: guruError } = await supabase
+    if (agError) {
+      throw agError;
+    }
+
+    const {
+      count: jumlahGuru,
+      error: guruError
+    } = await supabase
       .from("pengguna")
       .select("id", { count: "exact", head: true })
       .eq("role", "guru");
-    if (guruError) throw guruError;
 
-    const guruSudahAbsen = new Set((absensiGuru || []).map((x) => x.guru_id));
-    const guruBelumAbsen = Math.max(0, (jumlahGuru || 0) - guruSudahAbsen.size);
-    if (guruBelumAbsen > 0) {
-      perhatian.push(`👩‍🏫 ${guruBelumAbsen} guru/pelatih belum mengisi absensi hari ini.`);
+    if (guruError) {
+      throw guruError;
     }
 
-    const { data: absensiSiswa, error: asError } = await supabase
+    const guruSudahAbsen =
+      new Set((absensiGuru || []).map((x) => x.guru_id));
+
+    const guruBelumAbsen =
+      Math.max(0, (jumlahGuru || 0) - guruSudahAbsen.size);
+
+    if (guruBelumAbsen > 0) {
+      perhatian.push(
+        `👩‍🏫 ${guruBelumAbsen} guru/pelatih belum mengisi absensi hari ini.`
+      );
+    }
+
+
+    // ========================================================
+    // D. ABSENSI SISWA
+    // ========================================================
+
+    const {
+      data: absensiSiswa,
+      error: asError
+    } = await supabase
       .from("absensi")
       .select("siswa_id")
       .eq("tanggal", tanggal);
-    if (asError) throw asError;
 
-    const { count: jumlahSiswa, error: siswaError } = await supabase
+    if (asError) {
+      throw asError;
+    }
+
+    const {
+      count: jumlahSiswa,
+      error: siswaError
+    } = await supabase
       .from("siswa")
       .select("id", { count: "exact", head: true });
-    if (siswaError) throw siswaError;
 
-    const siswaBelumAbsen = Math.max(0, (jumlahSiswa || 0) - (absensiSiswa || []).length);
-    if (siswaBelumAbsen > 0) {
-      perhatian.push(`📋 ${siswaBelumAbsen} siswa belum memiliki absensi hari ini.`);
+    if (siswaError) {
+      throw siswaError;
     }
+
+    const jumlahAbsenSiswa =
+      (absensiSiswa || []).length;
+
+    const siswaBelumAbsen =
+      Math.max(0, (jumlahSiswa || 0) - jumlahAbsenSiswa);
+
+    if (siswaBelumAbsen > 0) {
+      perhatian.push(
+        `📋 ${siswaBelumAbsen} siswa belum memiliki absensi hari ini.`
+      );
+    }
+
+
   } catch (error) {
-    console.error("Error load notifikasi:", error);
+
+    console.error(
+      "Error load notifikasi:",
+      error
+    );
+
     count.textContent = "!";
     count.style.display = "inline-flex";
-    panel.innerHTML = `<div style="font-weight:700;color:var(--bad);">Notifikasi gagal dimuat</div><div class="notif-item">Silakan coba lagi.</div>`;
+
+    panel.innerHTML = `
+      <div
+        style="
+          font-weight:700;
+          color:var(--bad);
+          margin-bottom:6px;
+        "
+      >
+        Notifikasi gagal dimuat
+      </div>
+
+      <div class="notif-item">
+        Silakan coba lagi.
+      </div>
+    `;
+
     return;
   }
 
-  // Badge hanya merepresentasikan pekerjaan pembayaran yang perlu diverifikasi.
+
+  // ==========================================================
+  // BADGE = pembayaran yang masih perlu diverifikasi
+  // ==========================================================
+
   count.textContent = pembayaran.length;
-  count.style.display = pembayaran.length ? "inline-flex" : "none";
+  count.style.display =
+    pembayaran.length > 0
+      ? "inline-flex"
+      : "none";
+
+
+  // ==========================================================
+  // PANEL
+  // ==========================================================
 
   let html = "";
 
-  if (pembayaran.length) {
-    html += `<div style="font-weight:700;margin-bottom:10px;">Pembayaran Menunggu Verifikasi</div>`;
+  if (pembayaran.length > 0) {
+
+    html += `
+      <div
+        style="
+          font-weight:700;
+          margin-bottom:10px;
+        "
+      >
+        Pembayaran Menunggu Verifikasi
+      </div>
+    `;
+
     pembayaran.forEach((item) => {
+
       html += `
-        <div class="notif-item notif-payment"
-          onclick="window.__app.bukaPembayaranDariNotifikasi('${item.id}',${item.bulan},${item.tahun})">
-          <div style="font-weight:600;line-height:1.4;">🔔 ${item.nama}</div>
-          <div style="font-size:12px;margin-top:3px;color:var(--ink-soft);">
-            SPP ${namaBulan(item.bulan)} ${item.tahun} · ${formatRupiah(item.nominal)}
+        <div
+          class="notif-item notif-payment"
+          onclick="window.__app.bukaPembayaranDariNotifikasi('${item.id}', ${item.bulan}, ${item.tahun})"
+        >
+
+          <div
+            style="
+              font-weight:600;
+              line-height:1.4;
+            "
+          >
+            🔔 ${item.nama}
           </div>
-          <div style="margin-top:7px;color:var(--primary-dark);font-size:11px;font-weight:700;">
+
+          <div
+            style="
+              font-size:12px;
+              margin-top:3px;
+              color:var(--ink-soft);
+            "
+          >
+            SPP ${namaBulan(item.bulan)} ${item.tahun}
+            · ${formatRupiah(item.nominal)}
+          </div>
+
+          <div
+            style="
+              margin-top:7px;
+              color:var(--primary-dark);
+              font-size:11px;
+              font-weight:700;
+            "
+          >
             Periksa pembayaran →
           </div>
-        </div>`;
+
+        </div>
+      `;
     });
   }
 
-  if (perhatian.length) {
-    html += `<div style="font-weight:700;margin-top:14px;margin-bottom:6px;padding-top:10px;border-top:1px solid var(--line);">Perlu Perhatian</div>`;
-    perhatian.forEach((item) => { html += `<div class="notif-item">${item}</div>`; });
+  if (perhatian.length > 0) {
+
+    html += `
+      <div
+        style="
+          font-weight:700;
+          margin-top:14px;
+          margin-bottom:6px;
+          padding-top:10px;
+          border-top:1px solid var(--line);
+        "
+      >
+        Perlu Perhatian
+      </div>
+    `;
+
+    perhatian.forEach((item) => {
+      html += `
+        <div class="notif-item">
+          ${item}
+        </div>
+      `;
+    });
   }
 
-  if (!pembayaran.length && !perhatian.length) {
-    html = `<div style="font-weight:700;margin-bottom:6px;">Semua aman ✨</div><div class="notif-item">Belum ada hal yang perlu ditindaklanjuti.</div>`;
+  if (
+    pembayaran.length === 0 &&
+    perhatian.length === 0
+  ) {
+    html = `
+      <div
+        style="
+          font-weight:700;
+          margin-bottom:6px;
+        "
+      >
+        Semua aman ✨
+      </div>
+
+      <div class="notif-item">
+        Belum ada hal yang perlu ditindaklanjuti.
+      </div>
+    `;
   }
 
   panel.innerHTML = html;
 }
 
-function bukaPembayaranDariNotifikasi(sppId, bulan, tahun) {
+
+// ============================================================
+// BUKA PEMBAYARAN DARI NOTIFIKASI
+// ============================================================
+
+function bukaPembayaranDariNotifikasi(
+  sppId,
+  bulan,
+  tahun
+) {
   const panel = document.getElementById("notifPanel");
   if (panel) panel.classList.remove("show");
-  window.__app.goTo("spp");
+
+  if (window.__app && typeof window.__app.goTo === "function") {
+    window.__app.goTo("spp");
+  }
+
   setTimeout(() => {
-    if (typeof fokusSppTahunan === "function") {
-      fokusSppTahunan(sppId, bulan, tahun);
+    if (window.__app && typeof window.__app.fokusSppTahunan === "function") {
+      window.__app.fokusSppTahunan(sppId, bulan, tahun);
     }
-  }, 180);
+  }, 220);
 }
 
 
