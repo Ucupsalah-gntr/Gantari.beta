@@ -559,6 +559,35 @@ function updateSppSummary(siswaTampil) {
   setText("sppSummaryBelum", belum);
 }
 
+
+// ============================================================
+// BUKTI PEMBAYARAN — STORAGE PRIVATE
+// ============================================================
+function getBuktiPath(value) {
+  if (!value) return null;
+  const text = String(value);
+  const marker = "/storage/v1/object/public/bukti-pembayaran/";
+  const markerSign = "/storage/v1/object/sign/bukti-pembayaran/";
+  if (text.includes(marker)) return decodeURIComponent(text.split(marker)[1].split("?")[0]);
+  if (text.includes(markerSign)) return decodeURIComponent(text.split(markerSign)[1].split("?")[0]);
+  return text;
+}
+
+async function getBuktiSignedUrl(value, expiresIn = 600) {
+  if (!supabase || !value) return null;
+  const path = getBuktiPath(value);
+  if (!path) return null;
+  const { data, error } = await supabase
+    .storage
+    .from("bukti-pembayaran")
+    .createSignedUrl(path, expiresIn);
+  if (error) {
+    console.error("Gagal membuat signed URL bukti pembayaran:", error);
+    return null;
+  }
+  return data?.signedUrl || null;
+}
+
 // ============================================================
 // LOAD SPP
 // ============================================================
@@ -871,6 +900,10 @@ async function bukaDetailSpp(id) {
   const modal = document.getElementById("sppDetailModal");
   if (!modal) return;
 
+  const buktiSignedUrl = data.bukti_bayar_url
+    ? await getBuktiSignedUrl(data.bukti_bayar_url)
+    : null;
+
   let aksi = "";
 
   if (data.status === "Menunggu Verifikasi") {
@@ -970,12 +1003,12 @@ async function bukaDetailSpp(id) {
       </div>
 
       ${
-        data.bukti_bayar_url
+        buktiSignedUrl
           ? `
             <div style="margin-top:18px;">
               <div class="spp-detail-label">Bukti Pembayaran</div>
               <a
-                href="${data.bukti_bayar_url}"
+                href="${buktiSignedUrl}"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="btn secondary small"
