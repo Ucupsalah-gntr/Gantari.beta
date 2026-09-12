@@ -13,10 +13,13 @@ function dashEscape(value) {
 }
 
 function dashToday() {
-  const now = new Date();
+  const now = typeof getNowWIB === "function" ? getNowWIB() : new Date();
+  const dateString = typeof getTodayWIBString === "function"
+    ? getTodayWIBString()
+    : now.toISOString().slice(0, 10);
   return {
     date: now,
-    dateString: now.toISOString().slice(0, 10),
+    dateString,
     bulan: now.getMonth() + 1,
     tahun: now.getFullYear(),
   };
@@ -110,9 +113,6 @@ function renderDasbor() {
         </div>
         <div class="section-body">
           <div class="dash-quick-grid">
-            <button type="button" class="dash-quick-card" onclick="window.__app.goTo('input-absen')">
-              <span class="dash-quick-icon">📋</span><span><strong>Input absensi siswa</strong><small>Catat kehadiran kelas</small></span><b>→</b>
-            </button>
             <button type="button" class="dash-quick-card" onclick="window.__app.goTo('absen-guru')">
               <span class="dash-quick-icon">👩‍🏫</span><span><strong>Absensi guru</strong><small>Pantau kehadiran pelatih</small></span><b>→</b>
             </button>
@@ -121,6 +121,9 @@ function renderDasbor() {
             </button>
             <button type="button" class="dash-quick-card" onclick="window.__app.goTo('spp')">
               <span class="dash-quick-icon">💳</span><span><strong>Monitoring SPP</strong><small>12 bulan dalam satu tampilan</small></span><b>→</b>
+            </button>
+            <button type="button" class="dash-quick-card" onclick="window.__app.goTo('rekap')">
+              <span class="dash-quick-icon">📊</span><span><strong>Rekap absensi</strong><small>Lihat ringkasan kehadiran</small></span><b>→</b>
             </button>
           </div>
         </div>
@@ -386,7 +389,7 @@ async function loadPerhatian() {
     }
 
     if (siswaBelumAbsen.length) {
-      cards.push(`<div class="dash-attention-card is-alert"><div class="dash-attention-head"><span class="dash-attention-icon">📋</span><div><strong>${siswaBelumAbsen.length} siswa belum tercatat absensinya</strong><small>Hari ini · ${dateString}</small></div></div><button type="button" class="dash-action-btn" onclick="window.__app.goTo('input-absen')">Input absensi siswa →</button></div>`);
+      cards.push(`<div class="dash-attention-card is-alert"><div class="dash-attention-head"><span class="dash-attention-icon">📋</span><div><strong>${siswaBelumAbsen.length} siswa belum tercatat absensinya</strong><small>Hari ini · ${dateString}</small></div></div><button type="button" class="dash-action-btn" onclick="window.__app.goTo('rekap')">Lihat rekap absensi →</button></div>`);
     }
 
     if (guruBelumAbsen.length) {
