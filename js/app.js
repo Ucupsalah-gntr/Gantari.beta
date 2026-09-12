@@ -104,11 +104,30 @@
       }
 
       function goTo(navId) {
-        currentNav = navId;
-        closeMobileMenu();
-        renderNav();
-        renderView();
-      }
+  const nav = NAV_CONFIG[currentUserRole] || [];
+
+  const allowed = nav.some(
+    item => item.id === navId
+  );
+
+  // Tolak akses ke halaman yang bukan milik role ini.
+  if (!allowed) {
+    console.warn(
+      "Akses halaman ditolak:",
+      navId,
+      "untuk role:",
+      currentUserRole
+    );
+
+    return;
+  }
+
+  currentNav = navId;
+
+  closeMobileMenu();
+  renderNav();
+  renderView();
+}
 
       // ------------------------------------------------------
       // Menu mobile (hamburger)
