@@ -7,6 +7,34 @@ let anakOrangTuaList = [];
 let anakTerpilihId = null;
 
 
+
+// ============================================================
+// BUKTI PEMBAYARAN — STORAGE PRIVATE
+// ============================================================
+function getBuktiPathOrtu(value) {
+  if (!value) return null;
+  const text = String(value);
+  const marker = "/storage/v1/object/public/bukti-pembayaran/";
+  const markerSign = "/storage/v1/object/sign/bukti-pembayaran/";
+  if (text.includes(marker)) return decodeURIComponent(text.split(marker)[1].split("?")[0]);
+  if (text.includes(markerSign)) return decodeURIComponent(text.split(markerSign)[1].split("?")[0]);
+  return text;
+}
+
+async function getBuktiSignedUrlOrtu(value, expiresIn = 600) {
+  if (!supabase || !value) return null;
+  const path = getBuktiPathOrtu(value);
+  const { data, error } = await supabase
+    .storage
+    .from("bukti-pembayaran")
+    .createSignedUrl(path, expiresIn);
+  if (error) {
+    console.error("Gagal membuka bukti pembayaran:", error);
+    return null;
+  }
+  return data?.signedUrl || null;
+}
+
 // ============================================================
 // LOAD ANAK ORANG TUA
 // ============================================================
@@ -867,8 +895,17 @@ async function loadSppAnak() {
       return;
     }
 
+    const dataWithSigned = await Promise.all(
+      data.map(async (s) => ({
+        ...s,
+        buktiSignedUrl: s.bukti_bayar_url
+          ? await getBuktiSignedUrlOrtu(s.bukti_bayar_url)
+          : null,
+      }))
+    );
+
     tbody.innerHTML =
-      data
+      dataWithSigned
         .map(
           (s) => {
 
@@ -916,7 +953,7 @@ async function loadSppAnak() {
                     ? `
                       <div style="margin-top:5px;">
                         <a
-                          href="${s.bukti_bayar_url}"
+                          href="${s.buktiSignedUrl}"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -1146,20 +1183,11 @@ async function uploadBuktiSpp(
         spp.bulan
       ).padStart(2, "0")}-${Date.now()}.${extension}`;
 
-    const {
-  data: {
-    user: authUser
-  }
-} = await supabase.auth.getUser();
+    const folder =
+      currentUser.id;
 
-if (!authUser) {
-  throw new Error(
-    "Session login tidak ditemukan."
-  );
-}
-
-const filePath =
-  `${authUser.id}/${safeName}`;
+    const filePath =
+      `${folder}/${safeName}`;
 
     // Upload
     const {
@@ -1180,33 +1208,14 @@ const filePath =
       throw uploadError;
     }
 
-    // Ambil URL publik
-    const {
-      data: publicData
-    } = supabase
-      .storage
-      .from("bukti-pembayaran")
-      .getPublicUrl(
-        filePath
-      );
-
-    const publicUrl =
-      publicData?.publicUrl;
-
-    if (!publicUrl) {
-      throw new Error(
-        "URL bukti pembayaran tidak berhasil dibuat."
-      );
-    }
-
-    // Update SPP
+    // Simpan PATH file, bukan URL publik.
     const {
       error: updateError
     } = await supabase
       .from("spp")
       .update({
         bukti_bayar_url:
-          publicUrl,
+          filePath,
         status:
           "Menunggu Verifikasi"
       })
@@ -1250,3 +1259,69 @@ const filePath =
     );
   }
 }
+
+async function debugAksesPembayaran() {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError) throw userError;
+
+    if (!user) {
+      alert("Session login tidak ditemukan.");
+      return;
+    }
+
+    const {
+      data: profile,
+      error: profileError
+    } = await supabase
+      .from("pengguna")
+      .select("id,user_id,nama,email,role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    const {
+      data: anak,
+      error: anakError
+    } = await supabase
+      .from("siswa")
+      .select("id,nama,orang_tua_id")
+      .eq(
+        "orang_tua_id",
+        profile.id
+      );
+
+    if (anakError) throw anakError;
+
+    console.log("AUTH USER:", user);
+    console.log("PROFILE:", profile);
+    console.log("ANAK:", anak);
+
+    alert(
+      "HASIL DEBUG\n\n" +
+      "Login: " + user.email + "\n" +
+      "Nama: " + profile.nama + "\n" +
+      "Role: " + profile.role + "\n" +
+      "ID Profil: " + profile.id + "\n" +
+      "Jumlah anak: " + (anak || []).length
+    );
+
+  } catch (error) {
+    console.error(
+      "DEBUG PEMBAYARAN:",
+      error
+    );
+
+    alert(
+      "DEBUG GAGAL:\n\n" +
+      (error?.message || error)
+    );
+  }
+}
+
+
