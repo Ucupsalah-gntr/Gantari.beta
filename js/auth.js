@@ -112,21 +112,34 @@
       }
 
       async function logout() {
-        try {
-          if (supabase) {
-            const { error } = await supabase.auth.signOut();
-            if (error) console.error("Logout error:", error);
-          }
-        } catch (error) {
-          console.error("Logout error:", error);
-        } finally {
+  // Hentikan realtime terlebih dahulu agar tidak ada
+  // subscription akun lama yang tetap aktif.
+  try {
+    if (typeof stopRealtimeNotifications === "function") {
       stopRealtimeNotifications();
-      
-          currentUser = null;
-          currentUserRole = null;
-          currentNav = "dasbor";
-          anakOrangTuaList = [];
-          anakTerpilihId = null;
-          renderLogin();
-        }
+    }
+  } catch (error) {
+    console.error("Stop realtime error:", error);
+  }
+
+  try {
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Logout error:", error);
       }
+    }
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    // Bersihkan seluruh state akun.
+    currentUser = null;
+    currentUserRole = null;
+    currentNav = "dasbor";
+    anakOrangTuaList = [];
+    anakTerpilihId = null;
+
+    renderLogin();
+  }
+}
